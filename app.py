@@ -26,11 +26,11 @@ with st.sidebar:
     
     st.header("💰 5대 공식 정산 항목 (원/kWh)")
     # 공식 명칭으로 수정 
-    in_mep = st.number_input("1. 전력량정산금 (MEP) 증분", value=0.5, step=0.1, help="하루전/실시간 시장 이중정산에 따른 차익 [cite: 9]")
+    in_mep = st.number_input("1. 전력량정산금 (MEP) 증분", value=0.5, step=0.1, help="하루전/실시간 시장 이중정산에 따른 차익")
     in_cp = st.number_input("2. 용량정산금 (CP)", value=5.5, step=0.1, help="공급가능용량 및 실효용량 기반 지급 ")
-    in_map = st.number_input("3. 기대이익정산금 (MAP)", value=2.0, step=0.1, help="계통사유 출력제어 시 기대이익 보전 [cite: 25, 28]")
-    in_mwp = st.number_input("4. 변동비보전정산금 (MWP)", value=0.1, step=0.1, help="입찰비용 미회수 시 보전 (재생e는 드물게 발생) [cite: 15, 19]")
-    in_imbp = st.number_input("5. 임밸런스 페널티 (IMBP) 차감", value=0.3, step=0.1, help="급전지시 미이행 시 부과되는 페널티 [cite: 29, 30]")
+    in_map = st.number_input("3. 기대이익정산금 (MAP)", value=2.0, step=0.1, help="계통사유 출력제어 시 기대이익 보전")
+    in_mwp = st.number_input("4. 변동비보전정산금 (MWP)", value=0.1, step=0.1, help="입찰비용 미회수 시 보전 (재생e는 드물게 발생)")
+    in_imbp = st.number_input("5. 임밸런스 페널티 (IMBP) 차감", value=0.3, step=0.1, help="급전지시 미이행 시 부과되는 페널티")
     
     st.divider()
     st.header("🤝 수익 배분")
