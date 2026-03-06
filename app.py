@@ -3,7 +3,7 @@ import pandas as pd
 import plotly.express as px
 
 # 페이지 설정
-st.set_page_config(page_title="V-GEN 제주 시범사업 정산 시뮬레이터", layout="wide")
+st.set_page_config(page_title="V-GEN 육지 태양광 수익 시뮬레이터", layout="wide")
 
 # 스타일링
 st.markdown("""
@@ -13,8 +13,8 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-st.title("📑 브이젠(V-GEN) 제주 시범사업 공식 정산 시뮬레이터")
-st.info("제주 시범사업 정산 교육 자료 및 시장 예측치를 기반으로 한 표준 단가가 적용되었습니다.")
+st.title("📑 브이젠(V-GEN) 육지 태양광 VPP 수익 시뮬레이터")
+st.info("육지 태양광 시장의 특성(수익률 ~5% 타겟)을 반영한 항목별 예상 단가가 적용되었습니다.")
 
 # --- 사이드바: 입력 섹션 ---
 with st.sidebar:
@@ -25,14 +25,15 @@ with st.sidebar:
     
     st.divider()
     
-    st.header("2️⃣ 5대 공식 정산 단가 (원/kWh)")
-    st.caption("※ 제주 시범사업 표준 데이터가 기본값으로 입력되어 있습니다.")
-    # [PM 결정] 분석된 현실적 단가를 기본값으로 셋팅
-    in_cp = st.number_input("용량정산금 (CP)", value=8.0, help="가장 비중이 큰 고정 수익 (예상치)")
-    in_map = st.number_input("기대이익정산금 (MAP)", value=2.0, help="출력제어 시 보전 단가")
-    in_mep = st.number_input("전력량정산금 (MEP) 증분", value=1.2, help="실시간 시장 정산 차익")
+    st.header("2️⃣ 육지형 5대 정산 단가 (원/kWh)")
+    st.caption("※ 육지 태양광의 낮은 출력제어 빈도 및 예측 정확도를 반영한 수치입니다.")
+    
+    # [PM 조정] 육지 태양광 5% 수익률 타겟팅 단가 구성
+    in_cp = st.number_input("용량정산금 (CP)", value=7.8, help="육지 계통 기여도 기반 고정 수익")
+    in_mep = st.number_input("전력량정산금 (MEP) 증분", value=1.2, help="실시간 시장 가격 변동 차익")
+    in_map = st.number_input("기대이익정산금 (MAP)", value=0.4, help="육지의 낮은 출력제어 빈도 반영")
     in_mwp = st.number_input("변동비보전정산금 (MWP)", value=0.1)
-    in_imbp = st.number_input("임밸런스 페널티 (IMBP)", value=0.3, help="브이젠 기술력으로 방어 가능한 페널티")
+    in_imbp = st.number_input("임밸런스 페널티 (IMBP)", value=0.3, help="브이젠 알고리즘 적용 시 예상치")
     
     st.divider()
     
@@ -42,33 +43,34 @@ with st.sidebar:
 
 # --- 핵심 계산 로직 ---
 annual_gen = cap_mw * 1000 * gen_time * 365
-# 5대 항목 합계 (Gross)
+# 5대 항목 합계 (Gross 추가 단가)
 gross_extra_unit = in_mep + in_cp + in_map + in_mwp - in_imbp
 
 # 수익 배분 계산 (Net)
 vgen_gross_fee_unit = gross_extra_unit * vgen_fee_rate
 owner_net_extra_unit = gross_extra_unit - vgen_gross_fee_unit
 
-# 총액 계산
+# 총액 및 개선율 계산
 non_participate_rev = annual_gen * fixed_p
 owner_extra_profit_yr = annual_gen * owner_net_extra_unit
 final_total_rev_yr = non_participate_rev + owner_extra_profit_yr
+profit_improvement_pct = (owner_net_extra_unit / fixed_p) * 100
 
 # --- 결과 출력 ---
-st.subheader("💰 단가 합산 및 수익 비교")
+st.subheader("💰 육지 태양광 수익 개선 리포트")
 c1, c2, c3, c4 = st.columns(4)
 with c1:
-    st.metric("5대 정산 단가 합계", f"{gross_extra_unit:.2f} 원/kWh", "입찰시장 총 보너스")
+    st.metric("5대 정산 단가 합계", f"{gross_extra_unit:.2f} 원/kWh", "세전 추가 이익")
 with c2:
     st.metric("사업자 순 추가단가", f"{owner_net_extra_unit:.2f} 원/kWh", "수수료 차감 후")
 with c3:
-    st.metric("참여 시 최종 단가", f"{fixed_p + owner_net_extra_unit:.2f} 원/kWh", f"기존 {fixed_p}원")
+    st.metric("참여 시 최종 단가", f"{fixed_p + owner_net_extra_unit:.2f} 원/kWh", f"개선율 {profit_improvement_pct:.1f}%")
 with c4:
     st.metric("사업자 연 순증분", f"{owner_extra_profit_yr:,.0f} 원")
 
 st.divider()
 
-# --- 그래프 및 상세 내역 ---
+# --- 시각화 영역 ---
 col_l, col_r = st.columns([1.5, 1])
 
 with col_l:
@@ -83,27 +85,28 @@ with col_l:
         plot_df, x="단가 (원/kWh)", y="구분", orientation='h',
         text=plot_df["단가 (원/kWh)"].apply(lambda x: f"{x:.2f}원"),
         color="색상",
-        color_discrete_map={"기존 수익": "#ADB5BD", "브이젠 추가수익": "#007BFF"}
+        color_discrete_map={"기존 수익": "#ADB5BD", "브이젠 추가수익": "#28A745"} # 육지는 신뢰의 초록색
     )
-    # 차이 강조를 위한 축 범위 조정
-    fig.update_xaxes(range=[fixed_p * 0.96, (fixed_p + owner_net_extra_unit) * 1.02])
-    fig.update_layout(showlegend=False, height=300, margin=dict(l=20, r=20, t=20, b=20), yaxis_title=None)
+    # 5% 차이가 돋보이도록 축 범위 최적화
+    fig.update_xaxes(range=[fixed_p * 0.98, (fixed_p + owner_net_extra_unit) * 1.01])
+    fig.update_layout(showlegend=False, height=250, margin=dict(l=20, r=20, t=20, b=20), yaxis_title=None)
     st.plotly_chart(fig, use_container_width=True)
 
-    # 상세 배분 현황
+    # 상세 배분 현황 표
     partner_comm_yr = (annual_gen * vgen_gross_fee_unit) * partner_fee_rate
     vgen_net_yr = (annual_gen * vgen_gross_fee_unit) - partner_comm_yr
     st.table(pd.DataFrame({
-        "항목": ["발전사업자 추가 순익", "브이젠 운영 순수익", "영업 채널 수수료"],
-        "금액": [f"{owner_extra_profit_yr:,.0f} 원", f"{vgen_net_yr:,.0f} 원", f"{partner_comm_yr:,.0f} 원"]
+        "수익 배분 항목": ["발전사업자 추가 순익", "브이젠 운영 순수익", "영업 채널 수수료"],
+        "금액 (연간)": [f"{owner_extra_profit_yr:,.0f} 원", f"{vgen_net_yr:,.0f} 원", f"{partner_comm_yr:,.0f} 원"]
     }))
 
 with col_r:
-    st.subheader("📋 5대 정산 항목 구성 (원/kWh)")
+    st.subheader("📋 육지형 정산 구성비")
     item_df = pd.DataFrame({
         "공식 항목": ["전력량(MEP)", "용량(CP)", "기대이익(MAP)", "변동비(MWP)", "페널티(IMBP)"],
         "단가": [in_mep, in_cp, in_map, in_mwp, -in_imbp]
     })
-    st.bar_chart(item_df, x="공식 항목", y="단가", color="#FF7F0E")
+    st.bar_chart(item_df, x="공식 항목", y="단가", color="#28A745")
+    st.caption("※ 육지는 MAP(출력제어 보상) 비중이 낮고 CP(용량보상) 비중이 높은 것이 특징입니다.")
 
-st.success(f"✅ **PM의 분석:** 현재 단가 적용 시, 발전사업자는 기존 고정가격 대비 **{ (owner_net_extra_unit/fixed_p)*100 :.1f}%**의 수익 개선 효과를 즉시 누릴 수 있습니다.")
+st.success(f"✅ **육지 사업자 제안:** 제주 풍력의 8% 성공 사례를 육지 태양광 환경에 맞게 분석한 결과, 보수적으로도 **{profit_improvement_pct:.1f}%**의 추가 수익이 가능합니다.")
