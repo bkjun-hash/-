@@ -12,7 +12,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-st.title("⚖️ 브이젠(V-GEN) 제주 시범사업 표준 정산 시뮬레이터")
+st.title("⚖️ 브이젠(V-GEN) 재생에너지 입찰 시장 정산 시뮬레이터")
 st.caption("전력거래소(KPX) 제주 시범사업 정산 교육 자료의 공식 항목을 준수합니다.")
 
 # --- 사이드바: 입력 섹션 ---
