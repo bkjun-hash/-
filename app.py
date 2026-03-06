@@ -12,7 +12,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-st.title("📑 브이젠(V-GEN) 입찰 시장 예상 수익 시뮬레이터")
+st.title("📑 브이젠(V-GEN) 제주 시범사업 공식 정산 시뮬레이터")
 st.info("전력거래소(KPX) 정산 교육 자료의 이중정산체계 및 재생에너지 입찰제도 산식을 적용했습니다.")
 
 # --- 사이드바: 입력 섹션 ---
@@ -41,58 +41,61 @@ with st.sidebar:
 # 1. 연간 발전량
 annual_gen = cap_mw * 1000 * gen_time * 365
 
-# 2. 미 참여 시 수익 (기존 고정가격 매출)
-non_participate_rev = annual_gen * fixed_p
+# 2. 입찰 시장 총 추가 단가 (세전)
+gross_extra_unit = in_mep + in_cp + in_map + in_mwp - in_imbp
 
-# 3. 입찰 시장 추가 수익 (Gross Alpha)
-net_extra_unit = in_mep + in_cp + in_map + in_mwp - in_imbp
-total_extra_rev = annual_gen * net_extra_unit
+# 3. 수익 배분 계산 (Net)
+vgen_gross_fee_unit = gross_extra_unit * vgen_fee_rate          # kWh당 브이젠 총 수수료
+owner_net_extra_unit = gross_extra_unit - vgen_gross_fee_unit   # kWh당 사업자 순 추가수익 (이것이 핵심!)
 
-# 4. 수익 배분 (Net) - 오타 수정 완료
-vgen_gross_fee = total_extra_rev * vgen_fee_rate         
-partner_commission = vgen_gross_fee * partner_fee_rate    
-vgen_net_profit = vgen_gross_fee - partner_commission    
-owner_extra_profit = total_extra_rev - vgen_gross_fee # 이 변수명이 아래와 일치해야 함
+# 4. 연간 총액 계산
+non_participate_rev = annual_gen * fixed_p                      # 미참여 시 수익
+owner_extra_profit_yr = annual_gen * owner_net_extra_unit       # 사업자 연간 순이익 증분
+final_total_rev_yr = non_participate_rev + owner_extra_profit_yr # 참여 시 최종 수익
 
-# 5. 최종 총 수익
-final_total_rev = non_participate_rev + owner_extra_profit
+# 5. 파트너 및 브이젠 수익 계산
+partner_commission_yr = (annual_gen * vgen_gross_fee_unit) * partner_fee_rate
+vgen_net_profit_yr = (annual_gen * vgen_gross_fee_unit) - partner_commission_yr
 
 # --- 결과 출력 ---
-st.subheader("💰 수익 비교 요약")
-c1, c2, c3 = st.columns(3)
+st.subheader("💰 kWh당 추가 수익 및 총액 비교")
+c1, c2, c3, c4 = st.columns(4)
 with c1:
-    st.metric("미 참여 시 수익 (연)", f"{non_participate_rev:,.0f} 원")
+    # 요청하신 핵심 항목: 사업자가 실제로 가져가는 kWh당 추가 단가
+    st.metric("사업자 순 추가단가", f"{owner_net_extra_unit:.2f} 원/kWh", "수수료 차감 후")
 with c2:
-    st.metric("참여 시 총 수익 (연)", f"{final_total_rev:,.0f} 원", f"+{owner_extra_profit:,.0f} 원")
+    st.metric("참여 시 총 단가", f"{fixed_p + owner_net_extra_unit:.2f} 원/kWh", f"기존 {fixed_p}원")
 with c3:
-    # 에러가 났던 부분: owner_extra_profit으로 수정
-    st.metric("사업자 순증분 (20년)", f"{owner_extra_profit * 20 / 100000000:.2f} 억원")
+    st.metric("사업자 연 순증분", f"{owner_extra_profit_yr:,.0f} 원")
+with c4:
+    st.metric("20년 누적 순증분", f"{owner_extra_profit_yr * 20 / 100000000:.2f} 억원")
 
 st.divider()
 
 col_l, col_r = st.columns([1.5, 1])
 
 with col_l:
-    st.subheader("📊 연간 수익 시나리오 비교")
+    st.subheader("📊 수익 시나리오 비교")
     compare_df = pd.DataFrame({
-        "구분": ["미 참여 시 (기본)", "브이젠 참여 (최종)"],
-        "연간 매출 (원)": [non_participate_rev, final_total_rev]
+        "구분": ["미 참여 (기본)", "브이젠 참여 (최종)"],
+        "단가 (원/kWh)": [fixed_p, fixed_p + owner_net_extra_unit]
     })
-    st.bar_chart(compare_df, x="구분", y="연간 매출 (원)", color="#1F77B4")
+    st.bar_chart(compare_df, x="구분", y="단가 (원/kWh)", color="#1F77B4")
 
-    st.subheader("💸 상세 배분 현황 (연간)")
+    st.subheader("💸 상세 배분 내역 (연간 총액)")
     fee_data = pd.DataFrame({
         "항목": ["발전사업자 추가 순익", "브이젠 운영 순수익", "영업 채널 수수료"],
-        "금액": [f"{owner_extra_profit:,.0f} 원", f"{vgen_net_profit:,.0f} 원", f"{partner_commission:,.0f} 원"]
+        "금액": [f"{owner_extra_profit_yr:,.0f} 원", f"{vgen_net_profit_yr:,.0f} 원", f"{partner_commission_yr:,.0f} 원"]
     })
     st.table(fee_data)
 
 with col_r:
-    st.subheader("📋 5대 정산 항목별 기여")
+    st.subheader("📋 정산 항목별 단가 구성")
+    # 5대 항목 단가 시각화
     item_df = pd.DataFrame({
         "공식 항목": ["전력량(MEP)", "용량(CP)", "기대이익(MAP)", "변동비(MWP)", "페널티(IMBP)"],
         "단가 (원/kWh)": [in_mep, in_cp, in_map, in_mwp, -in_imbp]
     })
     st.bar_chart(item_df, x="공식 항목", y="단가 (원/kWh)", color="#FF7F0E")
 
-st.success(f"✅ **PM 전략:** 미 참여 대비 수익이 연간 약 { (owner_extra_profit/non_participate_rev)*100 :.2f}% 향상됩니다.")
+st.success(f"✅ **영업 포인트:** 입찰제 참여 시 kWh당 **{owner_net_extra_unit:.2f}원**을 추가로 수령하여, 기존 대비 약 **{(owner_net_extra_unit/fixed_p)*100:.1f}%**의 수익 개선이 가능합니다.")
