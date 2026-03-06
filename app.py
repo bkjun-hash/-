@@ -14,24 +14,21 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 st.title("📑 브이젠(V-GEN) 지역 맞춤형 VPP 수익 시뮬레이터")
-st.info("선택하신 지역의 출력제어 빈도와 육지/제주 정산 룰을 결합하여 최적화된 수익을 산출합니다.")
+st.info("지역을 선택하면 해당 지역의 출력제어 빈도를 반영한 표준 5대 정산 단가가 자동으로 설정됩니다.")
 
-# --- 데이터 정의: 지역별 출력제어 특성 ---
-# MAP(기대이익정산금)은 출력제어가 잦을수록 보상액이 커집니다.
+# --- 데이터 정의: 지역별 프리셋 ---
 region_presets = {
-    "제주도 (매우 높음)": {"map_base": 2.5, "curtail_prob": "15~20%", "desc": "출력제어 빈도가 가장 높으며 MAP 보상 비중이 큼"},
-    "전라도/호남 (높음)": {"map_base": 0.8, "curtail_prob": "3~5%", "desc": "최근 출력제어가 본격화됨에 따라 MAP 수익 발생 시작"},
-    "경상도/영남 (보통)": {"map_base": 0.3, "curtail_prob": "1% 내외", "desc": "계통 혼잡 지역 위주로 간헐적 제어 발생"},
-    "기타 육지 (낮음)": {"map_base": 0.1, "curtail_prob": "0.1% 미만", "desc": "출력제어 리스크가 거의 없으나 CP 중심 수익 구조"}
+    "제주도 (출력제어 매우 높음)": {"mep": 1.2, "cp": 8.0, "map": 2.5, "mwp": 0.1, "imbp": 0.3},
+    "전라도/호남 (출력제어 높음)": {"mep": 1.2, "cp": 7.8, "map": 0.8, "mwp": 0.1, "imbp": 0.3},
+    "경상도/영남 (출력제어 보통)": {"mep": 1.2, "cp": 7.8, "map": 0.3, "mwp": 0.1, "imbp": 0.3},
+    "기타 육지 (출력제어 낮음)": {"mep": 1.2, "cp": 7.8, "map": 0.1, "mwp": 0.1, "imbp": 0.3}
 }
 
 # --- 사이드바: 입력 섹션 ---
 with st.sidebar:
     st.header("📍 1️⃣ 지역 선택")
     selected_region = st.selectbox("발전소 소재지를 선택하세요", list(region_presets.keys()))
-    region_info = region_presets[selected_region]
-    st.caption(f"**해당 지역 특성:** {region_info['desc']}")
-    st.caption(f"**예상 출력제어 확률:** {region_info['curtail_prob']}")
+    preset = region_presets[selected_region]
 
     st.divider()
     
@@ -42,25 +39,29 @@ with st.sidebar:
     
     st.divider()
     
-    st.header("💰 3️⃣ 수수료 설정 (%)")
+    st.header("📊 3️⃣ 5대 정산 단가 (원/kWh)")
+    st.caption("지역 선택에 따라 자동 조정되며, 직접 수정도 가능합니다.")
+    # 지역 프리셋 값을 기본값으로 사용
+    in_mep = st.number_input("전력량정산금 (MEP) 증분", value=preset['mep'])
+    in_cp = st.number_input("용량정산금 (CP)", value=preset['cp'])
+    in_map = st.number_input("기대이익정산금 (MAP)", value=preset['map'])
+    in_mwp = st.number_input("변동비보전정산금 (MWP)", value=preset['mwp'])
+    in_imbp = st.number_input("임밸런스 페널티 (IMBP)", value=preset['imbp'])
+
+    st.divider()
+    
+    st.header("💰 4️⃣ 수수료 설정 (%)")
     vgen_fee_rate = st.slider("브이젠 수수료율 (%)", 0, 30, 20) / 100
     partner_fee_rate = st.slider("영업 채널 배분율 (%)", 0, 20, 10) / 100
 
 # --- 핵심 계산 로직 ---
-# 지역 프리셋에 따른 MAP 자동 설정 및 기타 단가 셋팅
-in_cp = 7.8  # 용량정산금 표준
-in_mep = 1.2 # MEP 증분 표준
-in_map = region_info['map_base'] # 지역별 차등 적용
-in_mwp = 0.1
-in_imbp = 0.3
-
-# 연간 발전량 및 수익 계산
 annual_gen = cap_mw * 1000 * gen_time * 365
+# 5대 항목 합계 (Gross 추가 단가)
 gross_extra_unit = in_mep + in_cp + in_map + in_mwp - in_imbp
 
 # 수수료 및 배분 로직
-vgen_gross_fee_unit = gross_extra_unit * vgen_fee_rate
-owner_net_extra_unit = gross_extra_unit - vgen_gross_fee_unit
+vgen_total_fee_unit = gross_extra_unit * vgen_fee_rate
+owner_net_extra_unit = gross_extra_unit - vgen_total_fee_unit
 
 non_participate_rev = annual_gen * fixed_p
 owner_extra_profit_yr = annual_gen * owner_net_extra_unit
@@ -68,16 +69,12 @@ final_total_rev_yr = non_participate_rev + owner_extra_profit_yr
 improvement_pct = (owner_net_extra_unit / fixed_p) * 100
 
 # --- 결과 출력 ---
-st.subheader(f"✨ {selected_region} 발전소 수익 분석 리포트")
+st.subheader(f"✨ {selected_region} 분석 결과")
 c1, c2, c3, c4 = st.columns(4)
-with c1:
-    st.metric("5대 정산 단가 합계", f"{gross_extra_unit:.2f} 원/kWh", f"MAP 기여: {in_map}원")
-with c2:
-    st.metric("사업자 순 추가단가", f"{owner_net_extra_unit:.2f} 원/kWh", "수수료 차감 후")
-with c3:
-    st.metric("참여 시 최종 단가", f"{fixed_p + owner_net_extra_unit:.2f} 원/kWh", f"개선율 {improvement_pct:.1f}%")
-with c4:
-    st.metric("사업자 연 순증분", f"{owner_extra_profit_yr:,.0f} 원")
+with c1: st.metric("5대 정산 단가 합계", f"{gross_extra_unit:.2f} 원/kWh")
+with c2: st.metric("사업자 순 추가단가", f"{owner_net_extra_unit:.2f} 원/kWh")
+with c3: st.metric("참여 시 최종 단가", f"{fixed_p + owner_net_extra_unit:.2f} 원/kWh")
+with c4: st.metric("사업자 연 순증분", f"{owner_extra_profit_yr:,.0f} 원")
 
 st.divider()
 
@@ -85,7 +82,7 @@ st.divider()
 col_l, col_r = st.columns([1.5, 1])
 
 with col_l:
-    st.subheader("📊 지역별 수익 시나리오 비교")
+    st.subheader("📊 수익 시나리오 비교 (단가 기준)")
     plot_df = pd.DataFrame({
         "구분": ["미 참여 (기본)", "브이젠 참여 (최종)"],
         "단가 (원/kWh)": [fixed_p, fixed_p + owner_net_extra_unit],
@@ -98,12 +95,13 @@ with col_l:
         color="색상",
         color_discrete_map={"기존 수익": "#ADB5BD", "브이젠 추가수익": "#007BFF"}
     )
+    # 5% 내외의 차이가 잘 보이도록 범위 조정
     fig.update_xaxes(range=[fixed_p * 0.97, (fixed_p + owner_net_extra_unit) * 1.01])
     fig.update_layout(showlegend=False, height=250, margin=dict(l=20, r=20, t=20, b=20), yaxis_title=None)
     st.plotly_chart(fig, use_container_width=True)
 
-    # 파트너 수수료 계산 결과 표
-    vgen_total_fee_yr = (annual_gen * vgen_gross_fee_unit)
+    # 배분 내역 요약
+    vgen_total_fee_yr = (annual_gen * vgen_total_fee_unit)
     partner_comm_yr = vgen_total_fee_yr * partner_fee_rate
     vgen_net_profit_yr = vgen_total_fee_yr - partner_comm_yr
     
@@ -113,12 +111,11 @@ with col_l:
     }))
 
 with col_r:
-    st.subheader("📋 지역 특성 반영 정산 구성")
+    st.subheader("📋 5대 정산 항목 구성 (원/kWh)")
     item_df = pd.DataFrame({
-        "항목": ["전력량(MEP)", "용량(CP)", "보상(MAP)", "기타/페널티"],
-        "단가": [in_mep, in_cp, in_map, in_mwp - in_imbp]
+        "항목": ["전력량(MEP)", "용량(CP)", "보상(MAP)", "변동비(MWP)", "페널티(IMBP)"],
+        "단가": [in_mep, in_cp, in_map, in_mwp, -in_imbp]
     })
     st.bar_chart(item_df, x="항목", y="단가", color="#007BFF")
-    st.caption(f"현재 {selected_region}의 출력제어 리스크를 MAP 수익으로 전환한 결과입니다.")
 
-st.success(f"✅ **영업 포인트:** {selected_region} 지역은 출력제어 시에도 VPP 참여를 통해 수익을 방어하고, 추가적으로 연간 약 {owner_extra_profit_yr/10000:,.0f}만 원의 수익을 더 올릴 수 있습니다.")
+st.success(f"✅ **영업 포인트:** {selected_region}의 특성을 반영하여 기존 대비 약 **{improvement_pct:.1f}%**의 수익 개선이 가능함을 확인했습니다.")
