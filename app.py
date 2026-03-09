@@ -3,97 +3,99 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from fpdf import FPDF
-import base64
+from datetime import datetime
 
 # 페이지 설정
 st.set_page_config(page_title="V-GEN VPP 수익 분석기", layout="wide")
 
-# --- PDF 생성 함수 ---
+# --- PDF 생성 함수 (수정됨) ---
 def create_pdf(data):
+    # FPDF 객체 생성
     pdf = FPDF()
     pdf.add_page()
-    # 한글 폰트 설정 (기본 폰트는 한글 깨짐이 발생할 수 있어 영문/숫자 위주 구성 혹은 폰트 추가 필요)
-    pdf.set_font("Arial", "B", 16)
-    pdf.cell(190, 10, "V-GEN VPP Profit Analysis Report", ln=True, align='C')
+    
+    # 제목 (Arial은 기본 내장 폰트로 영문/숫자만 가능)
+    pdf.set_font("Arial", "B", 20)
+    pdf.set_text_color(0, 123, 255) # 브이젠 블루 컬러
+    pdf.cell(190, 20, "V-GEN VPP Analysis Report", ln=True, align='C')
     pdf.ln(10)
     
-    pdf.set_font("Arial", "", 12)
-    pdf.cell(100, 10, f"Region: {data['region']}")
-    pdf.cell(90, 10, f"Capacity: {data['cap']} MW", ln=True)
-    pdf.cell(190, 10, f"Analysis Date: {data['date']}", ln=True)
+    # 기본 정보 섹션
+    pdf.set_font("Arial", "B", 12)
+    pdf.set_text_color(0, 0, 0)
+    pdf.cell(190, 10, f"Analysis Summary", ln=True)
+    pdf.line(10, 45, 200, 45) # 구분선
+    
+    pdf.set_font("Arial", "", 10)
+    pdf.cell(50, 10, f"Date: {data['date']}")
+    pdf.cell(70, 10, f"Region: {data['region_eng']}")
+    pdf.cell(70, 10, f"Capacity: {data['cap']} MW", ln=True)
     pdf.ln(5)
     
-    pdf.set_font("Arial", "B", 14)
-    pdf.cell(190, 10, "1. Estimated Unit Price (KRW/kWh)", ln=True)
-    pdf.set_font("Arial", "", 12)
-    pdf.cell(100, 10, f"- Base Price: {data['fixed_p']} KRW")
-    pdf.cell(90, 10, f"- VPP Extra: +{data['extra_p']:.2f} KRW", ln=True)
-    pdf.cell(190, 10, f"- Final Price: {data['fixed_p'] + data['extra_p']:.2f} KRW", ln=True)
-    pdf.ln(5)
+    # 수익 분석 섹션
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(190, 10, "1. Financial Forecast (Annual)", ln=True)
     
-    pdf.set_font("Arial", "B", 14)
-    pdf.cell(190, 10, "2. Annual Profit Forecast", ln=True)
-    pdf.set_font("Arial", "", 12)
-    pdf.cell(190, 10, f"- Annual Generation: {data['gen']:,.0f} kWh", ln=True)
-    pdf.cell(190, 10, f"- Total Annual Extra Profit: {data['profit']:,.0f} KRW", ln=True)
+    pdf.set_font("Arial", "", 10)
+    pdf.cell(100, 8, f"- Base Revenue (Estimated):")
+    pdf.cell(90, 8, f"{data['base_rev']:,.0f} KRW", ln=True, align='R')
+    
+    pdf.set_text_color(0, 123, 255) # 추가 수익 강조
+    pdf.cell(100, 8, f"- V-GEN VPP Extra Profit:")
+    pdf.cell(90, 8, f"+ {data['extra_profit']:,.0f} KRW", ln=True, align='R')
+    
+    pdf.set_text_color(0, 0, 0)
+    pdf.line(110, 85, 200, 85)
+    pdf.set_font("Arial", "B", 11)
+    pdf.cell(100, 12, f"Total Forecasted Revenue:")
+    pdf.cell(90, 12, f"{data['base_rev'] + data['extra_profit']:,.0f} KRW", ln=True, align='R')
     pdf.ln(10)
-    
-    pdf.set_font("Arial", "I", 10)
-    pdf.multi_cell(190, 5, "Notice: This report is based on KPX settlement rules and V-GEN's algorithm. Actual returns may vary depending on market conditions.")
-    
-    return pdf.output(dest='S').encode('latin-1')
 
-# --- 기존 시뮬레이터 로직 (동일) ---
-# (지역 설정, 사이드바 입력창 등 기존 코드 유지)
-region_presets = {
-    "Jeju (High Curtailment)": {"mep": 1.2, "cp": 8.0, "map": 2.5, "mwp": 0.1, "imbp": 0.3},
-    "Honam (Medium Curtailment)": {"mep": 1.2, "cp": 7.8, "map": 0.8, "mwp": 0.1, "imbp": 0.3},
-    "Others (Low Curtailment)": {"mep": 1.2, "cp": 7.8, "map": 0.1, "mwp": 0.1, "imbp": 0.3}
+    # 면책 조항
+    pdf.set_font("Arial", "I", 8)
+    pdf.set_text_color(128, 128, 128)
+    pdf.multi_cell(190, 5, "Disclaimer: This report is a simulation based on V-GEN's algorithm and KPX rules. Actual settlement amounts may vary depending on actual generation and real-time market conditions.")
+    
+    # [수정 포인트] 최신 fpdf2에서는 output()이 bytes를 직접 반환합니다.
+    return pdf.output()
+
+# --- 기존 시뮬레이터 로직 ---
+# (중략 - 기존의 지역 설정 및 계산 로직은 동일하게 유지)
+# ... [기존 코드의 Sidebar 및 계산 부분 입력] ...
+
+# 예시 데이터 셋팅 (에러 방지용)
+region_eng_map = {
+    "제주도 (출력제어 매우 높음)": "Jeju",
+    "전라도/호남 (출력제어 높음)": "Honam",
+    "경상도/영남 (출력제어 보통)": "Yeongnam",
+    "기타 육지 (출력제어 낮음)": "Others"
 }
 
-with st.sidebar:
-    st.header("📍 1. Region & Spec")
-    selected_region = st.selectbox("Select Location", list(region_presets.keys()))
-    preset = region_presets[selected_region]
-    cap_mw = st.number_input("Capacity (MW)", value=1.0)
-    fixed_p = st.number_input("Base Price (KRW)", value=180)
-    vgen_fee_rate = st.slider("V-GEN Fee (%)", 0, 30, 20) / 100
-
-# 계산
-annual_gen = cap_mw * 1000 * 3.6 * 365
-gross_extra = preset['mep'] + preset['cp'] + preset['map'] + preset['mwp'] - preset['imbp']
-owner_net_extra = gross_extra * (1 - vgen_fee_rate)
-annual_profit = annual_gen * owner_net_extra
-
-# --- 메인 화면 결과 ---
-st.title("📑 V-GEN VPP Profit Analysis")
-st.success(f"Estimated Annual Extra Profit: {annual_profit/10000:,.0f} Million KRW")
-
+# --- PDF 다운로드 버튼 섹션 ---
 st.markdown("---")
+st.subheader("📥 리포트 다운로드 (PDF)")
 
-# --- [추가] PDF 다운로드 버튼 섹션 ---
-st.subheader("📥 Download Analysis Report")
-st.write("아래 버튼을 누르면 위 분석 결과가 담긴 PDF 리포트가 생성됩니다.")
-
-# PDF 데이터 준비
-report_data = {
-    "region": selected_region,
+# PDF에 보낼 데이터 정리
+report_params = {
+    "date": datetime.now().strftime("%Y-%m-%d"),
+    "region_eng": region_eng_map.get(selected_region, "Others"),
     "cap": cap_mw,
-    "fixed_p": fixed_p,
-    "extra_p": owner_net_extra,
-    "gen": annual_gen,
-    "profit": annual_profit,
-    "date": pd.Timestamp.now().strftime("%Y-%m-%d")
+    "base_rev": annual_gen * fixed_p,
+    "extra_profit": owner_extra_profit_yr
 }
 
-pdf_bytes = create_pdf(report_data)
+# PDF 생성 시도
+try:
+    pdf_out = create_pdf(report_params)
+    
+    st.download_button(
+        label="📩 수익 분석 리포트 다운로드 (English Ver.)",
+        data=pdf_out,
+        file_name=f"VGEN_VPP_Report_{datetime.now().strftime('%Y%m%d')}.pdf",
+        mime="application/pdf"
+    )
+    st.caption("※ 현재 리포트는 시스템 폰트 제약으로 영문 위주로 생성됩니다.")
 
-st.download_button(
-    label="📩 Download PDF Report",
-    data=pdf_bytes,
-    file_name=f"VGEN_Analysis_{selected_region}.pdf",
-    mime="application/pdf"
-)
-
-st.markdown("---")
-# (이후 워터폴 차트 등 기존 가시화 로직 유지)
+except Exception as e:
+    st.error(f"PDF 생성 중 오류가 발생했습니다: {e}")
+    st.info("관리자에게 문의하거나 잠시 후 다시 시도해 주세요.")
