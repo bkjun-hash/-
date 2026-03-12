@@ -7,115 +7,111 @@ st.set_page_config(page_title="V-GEN VPP 수익 분석기", layout="wide")
 
 # --- 1. 정책 데이터 (2026년 3월 기준) ---
 region_config = {
-    "호남/육지 (준중앙급전 시행)": {"cp": 11.0, "mep": 1.2, "map": 0.8, "desc": "육지 확대 모델 (CP 11원)"},
-    "제주도 (입찰제 안착)": {"cp": 22.0, "mep": 1.2, "map": 2.5, "desc": "제주 시범사업 모델 (CP 22원)"}
+    "호남/육지 (준중앙급전 시행 중)": {
+        "mep": 1.2, "cp": 11.0, "map": 0.8, "asp": 0.5, "imb": -0.3,
+        "desc": "육지형 준중앙급전 (CP 11원 중심)"
+    },
+    "호남/육지 (입찰제 확대 시나리오)": {
+        "mep": 2.5, "cp": 11.0, "map": 1.5, "asp": 0.8, "imb": -0.5,
+        "desc": "육지형 재생에너지 입찰제 (수익 다각화)"
+    },
+    "제주도 (입찰제 안착)": {
+        "mep": 1.2, "cp": 22.0, "map": 2.5, "asp": 1.0, "imb": -0.8,
+        "desc": "제주 시범사업 (전국 최대 CP 적용)"
+    }
 }
 
-# --- 2. 사이드바 입력 ---
+# --- 2. 사이드바 구성 ---
 with st.sidebar:
-    st.header("📍 1. 발전소 정보")
-    selected_region = st.selectbox("지역 선택", list(region_config.keys()))
+    st.header("📍 1. 지역 선택")
+    selected_region = st.selectbox("지역 및 제도 선택", list(region_config.keys()))
     conf = region_config[selected_region]
     
+    st.header("🏭 2. 발전소 정보")
     cap_mw = st.number_input("설비 용량 (MW)", value=1.0, step=0.1)
     gen_time = st.slider("일평균 발전시간", 2.0, 5.5, 3.6)
-    fixed_p = st.number_input("고정가격 단가 (원/kWh)", value=180)
+    fixed_p = st.number_input("현재 고정가격 단가 (원/kWh)", value=180)
 
-    st.header("📊 2. 정산금 상세 설정")
-    in_cp = st.number_input("용량 정산금 (CP)", value=conf['cp'])
-    in_mep = st.number_input("전력량 정산금 (MEP)", value=conf['mep'])
-    in_map = st.number_input("출력제어 보상 (MAP)", value=conf['map'])
-    
-    vgen_fee_rate = st.slider("브이젠 수수료 (%)", 0, 30, 20) / 100
+    st.header("📊 3. 정산금 상세 설정 (5가지)")
+    # 기존 항목 명칭 및 5가지 체계 유지
+    in_mep = st.number_input("1. 에너지 정산금 (MEP)", value=conf['mep'])
+    in_cp = st.number_input("2. 용량 정산금 (CP)", value=conf['cp'])
+    in_map = st.number_input("3. 기대이익 보상 (MAP)", value=conf['map'])
+    in_asp = st.number_input("4. 부가 서비스 정산금 (ASP)", value=conf['asp'])
+    in_imb = st.number_input("5. 임밸런스 페널티 (IMB)", value=conf['imb'])
+
+    st.header("🤝 4. 수익 배분 비율 설정")
+    # 사업주 비율을 먼저 조정하면 VGEN 수수료가 자동 계산되도록 구성
+    owner_share = st.slider("사업주 배분 비율 (%)", 50, 100, 80)
+    vgen_fee_rate = 100 - owner_share
+    st.info(f"💡 브이젠 수수료: {vgen_fee_rate}%")
 
 # --- 3. 수익 계산 로직 ---
-annual_gen = cap_mw * 1000 * gen_time * 365 # 연간 총 발전량(kWh)
+annual_gen = cap_mw * 1000 * gen_time * 365
 
-# [A] 기존 방식 총액 (예측정산금 일몰 후 고정가 매전만 수행)
-total_rev_base = annual_gen * fixed_p
-
-# [B] VPP 참여 후 총액
-vpp_extra_gross = in_cp + in_mep + in_map
-vgen_fee_unit = vpp_extra_gross * vgen_fee_rate
-owner_net_extra_unit = vpp_extra_gross - vgen_fee_unit
+# VPP 추가 정산금 총합
+vpp_extra_total_unit = in_mep + in_cp + in_map + in_asp + in_imb
+# 사업주에게 돌아가는 순 추가 단가
+owner_net_extra_unit = vpp_extra_total_unit * (owner_share / 100)
+# 최종 단가
 total_unit_vpp = fixed_p + owner_net_extra_unit
 
+# 수익 총액 계산
+total_rev_base = annual_gen * fixed_p
 total_rev_vpp = annual_gen * total_unit_vpp
 net_profit_increase = total_rev_vpp - total_rev_base
 
-# --- 4. 메인 화면 구성 ---
+# --- 4. 메인 화면 UI ---
 st.title("📑 V-GEN VPP 수익 분석 대시보드")
-st.info(f"💡 현재 **{selected_region}** 정책이 적용 중입니다. (예측정산금 일몰 반영)")
+st.markdown(f"**적용 모델:** {selected_region} | **수익 배분:** 사업주 {owner_share}% : 브이젠 {vgen_fee_rate}%")
 
-# [핵심 총액 비교 섹션]
-st.markdown("### 💰 연간 총 수익 비교 (매전 + 정산금)")
-m1, m2, m3 = st.columns(3)
-
-with m1:
-    st.markdown("""<div style="text-align:center; padding:20px; border-radius:10px; background-color:#f8f9fa;">
-                <p style="color:#666; margin-bottom:5px;">기존 방식 (단순 매전)</p>
-                <h2 style="margin:0;">""" + f"{total_rev_base/10000:,.0f} 만원" + """</h2>
-                <p style="color:#888;">단가 """ + f"{fixed_p}원" + """ 적용</p>
-                </div>""", unsafe_allow_html=True)
-
-with m2:
-    st.markdown("""<div style="text-align:center; padding:20px; border-radius:10px; background-color:#eef6ff; border:2px solid #00529C;">
-                <p style="color:#00529C; font-weight:bold; margin-bottom:5px;">VPP 참여 (최종 수익)</p>
-                <h2 style="margin:0; color:#00529C;">""" + f"{total_rev_vpp/10000:,.0f} 만원" + """</h2>
-                <p style="color:#00529C;">단가 """ + f"{total_unit_vpp:.2f}원" + """ 적용</p>
-                </div>""", unsafe_allow_html=True)
-
-with m3:
-    st.markdown("""<div style="text-align:center; padding:20px; border-radius:10px; background-color:#fff1f0; border:2px solid #f63366;">
-                <p style="color:#f63366; font-weight:bold; margin-bottom:5px;">연간 순수익 증대</p>
-                <h2 style="margin:0; color:#f63366;">""" + f"+ {net_profit_increase/10000:,.0f} 만원" + """</h2>
-                <p style="color:#f63366;">기존 대비 """ + f"{(net_profit_increase/total_rev_base)*100:.1f}% 상승" + """</p>
-                </div>""", unsafe_allow_html=True)
+# [수익 비교 대시보드]
+st.markdown("### 💰 연간 총 수익 및 증대 효과")
+c1, c2, c3 = st.columns(3)
+with c1:
+    st.metric("기존 총 수익 (매전)", f"{total_rev_base/10000:,.0f} 만원")
+with c2:
+    st.metric("VPP 참여 총 수익", f"{total_rev_vpp/10000:,.0f} 만원", f"+{net_profit_increase/10000:,.0f} 만원")
+with c3:
+    st.metric("최종 정산 단가", f"{total_unit_vpp:.2f} 원", f"+{owner_net_extra_unit:.2f} 원")
 
 st.divider()
 
-# [정산금 상세 분석 섹션]
-st.subheader("🔍 VPP 정산금 상세 항목 (수익 증대 원인)")
-col_a, col_b = st.columns([1.2, 1])
+# [워터폴 차트 및 상세 항목]
+col_left, col_right = st.columns([1.5, 1])
 
-with col_a:
-    # 워터폴 차트
+with col_left:
+    st.subheader("📈 정산 단가 구성 변화 (원/kWh)")
     fig_wf = go.Figure(go.Waterfall(
-        x = ["고정단가", "용량정산(CP)", "기타정산(MEP+MAP)", "수수료 차감", "최종단가"],
-        measure = ["relative", "relative", "relative", "relative", "total"],
-        y = [fixed_p, in_cp, in_mep + in_map, -vgen_fee_unit, 0],
-        text = [f"{fixed_p}원", f"+{in_cp}원", f"+{in_mep+in_map:.1f}원", f"-{vgen_fee_unit:.1f}원", f"{total_unit_vpp:.1f}원"],
+        x = ["고정단가", "CP(용량)", "MEP(에너지)", "기타(MAP+ASP)", "페널티(IMB)", "수수료차감", "최종단가"],
+        measure = ["relative", "relative", "relative", "relative", "relative", "relative", "total"],
+        y = [fixed_p, in_cp, in_mep, in_map + in_asp, in_imb, -(vpp_extra_total_unit * (vgen_fee_rate/100)), 0],
+        text = [f"{fixed_p}", f"+{in_cp}", f"+{in_mep}", f"+{in_map+in_asp}", f"{in_imb}", f"-{(vpp_extra_total_unit * (vgen_fee_rate/100)):.1f}", f"{total_unit_vpp:.1f}"],
         textposition = "outside",
         decreasing = {"marker":{"color":"#f63366"}},
         increasing = {"marker":{"color":"#00529C"}},
         totals = {"marker":{"color":"#002D5A"}}
     ))
-    fig_wf.update_layout(height=450, margin=dict(t=20, b=20, l=20, r=20))
     st.plotly_chart(fig_wf, use_container_width=True)
 
-with col_b:
-    st.markdown(f"""
-    #### 📝 정산금별 상세 설명
-    
-    **1. 용량 정산금 (CP: {in_cp}원/kWh)**
-    - **원리**: 발전소의 '공급 가능 용량'에 대해 지급하는 고정 보상금입니다.
-    - **장점**: 발전량과 상관없이 설비 대기만으로도 받는 **안정적인 확정 수익**입니다.
-    
-    **2. 전력량 정산금 (MEP: {in_mep}원/kWh)**
-    - **원리**: 실시간 시장 입찰을 통해 고정가격 외에 추가로 발생하는 전력 거래 이익입니다.
-    
-    **3. 기대이익 보상 (MAP: {in_map}원/kWh)**
-    - **원리**: **출력제어**로 인해 발전이 중단될 경우, 못 번 수익을 보전해주는 정산금입니다.
-    - **효과**: 제주/호남 지역 사장님들의 가장 큰 고민인 출력제어 리스크를 수익으로 바꿉니다.
-    """)
+with col_right:
+    st.subheader("📋 정산금 상세 명세")
+    st.write(f"**1. 용량 정산금 (CP):** {in_cp}원")
+    st.write(f"**2. 에너지 정산금 (MEP):** {in_mep}원")
+    st.write(f"**3. 기대이익 보상 (MAP):** {in_map}원")
+    st.write(f"**4. 부가 서비스 (ASP):** {in_asp}원")
+    st.write(f"**5. 임밸런스 페널티 (IMB):** {in_imb}원")
+    st.divider()
+    st.write(f"**합계 VPP 추가 정산금:** {vpp_extra_total_unit:.2f}원")
+    st.write(f"**사업주 순수익분 ({owner_share}%):** {owner_net_extra_unit:.2f}원")
 
-# [하단 영업용 데이터]
+# [최종 요약 표]
 st.divider()
-st.subheader("📊 연간 수익 요약 표")
-summary_df = pd.DataFrame({
-    "구분": ["기존 방식 (매전)", "V-GEN VPP (최종)"],
-    "적용 단가 (원/kWh)": [f"{fixed_p} 원", f"{total_unit_vpp:.2f} 원"],
-    "연간 총 수익 (만원)": [f"{total_rev_base/10000:,.0f} 만원", f"{total_rev_vpp/10000:,.0f} 만원"],
+st.subheader("📅 매전 수익 상세 비교 데이터")
+res_df = pd.DataFrame({
+    "구분": ["기존 방식 (매전)", "브이젠 VPP (최종)"],
+    "적용 단가 (원/kWh)": [f"{fixed_p:,.1f} 원", f"{total_unit_vpp:,.2f} 원"],
+    "연간 총 매출 (만원)": [f"{total_rev_base/10000:,.0f} 만원", f"{total_rev_vpp/10000:,.0f} 만원"],
     "수익 증분 (만원)": ["-", f"+ {net_profit_increase/10000:,.0f} 만원"]
 })
-st.table(summary_df)
+st.table(res_df)
