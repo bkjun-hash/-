@@ -5,19 +5,19 @@ from fpdf import FPDF
 import os
 
 # 페이지 설정
-st.set_page_config(page_title="V-GEN VPP 수익 분석기 v5.5", layout="wide")
+st.set_page_config(page_title="V-GEN VPP 수익 분석기 v5.6", layout="wide")
 
 # --- 폰트 설정 ---
 FONT_FILENAME = "NanumGothic.ttf"
 FONT_PATH = os.path.join(os.getcwd(), FONT_FILENAME)
 
-# --- 1. 정책 데이터 (MWP 유지) ---
+# --- 1. 정책 데이터 (유지) ---
 region_config = {
     "호남/육지 (입찰제 확대 모델)": {"cp": 11.0, "mep": 1.2, "map": 0.8, "mwp": 0.5, "imb": -0.3},
     "제주도 (입찰제 안착 모델)": {"cp": 22.0, "mep": 1.2, "map": 2.5, "mwp": 1.0, "imb": -0.8}
 }
 
-# --- 2. 사이드바 (참여 비용 상환 모델 유지) ---
+# --- 2. 사이드바 (100% 유지) ---
 with st.sidebar:
     st.header("📍 1. 지역 및 제도 설정")
     selected_region = st.selectbox("지역 선택", list(region_config.keys()))
@@ -51,7 +51,6 @@ with st.sidebar:
 
     st.header("🛠️ 6. 참여 비용 (상환 모델)")
     st.info("💡 RTU(150만) + 신자취(150만) 총 300만원은 수수료 쉐어를 통해 분할 상환되므로 사업주 실부담금은 0원입니다.")
-    initial_investment_desc = "300만원 (수수료 쉐어 상환 방식)"
 
 # --- 3. 수익 계산 로직 ---
 annual_gen = cap_mw * 1000 * gen_time * 365
@@ -63,13 +62,12 @@ net_items = {
     "변동비보전정산금(MWP)": in_mwp * fee_factor,
     "임밸런스(IMB)": adj_imb * fee_factor
 }
-
 owner_net_extra_unit = sum(net_items.values())
 total_rev_base = annual_gen * fixed_p
 total_rev_vpp = annual_gen * (fixed_p + owner_net_extra_unit)
 net_increase = total_rev_vpp - total_rev_base
 
-# --- 4. PDF 생성 함수 (참여 비용 상환 명문화 추가) ---
+# --- 4. PDF 생성 함수 (에러 수정: style='B' 제거) ---
 def generate_pro_report():
     pdf = FPDF()
     if os.path.exists(FONT_PATH):
@@ -95,13 +93,12 @@ def generate_pro_report():
         item_annual = (unit * annual_gen) / 10000
         pdf.cell(120, 10, f" + {item_annual:,.0f} 만원", 1, 1, 'R')
     
-    # [추가] 참여 비용 상환 항목 명문화
+    # [수정] style='B' 에러 해결을 위해 일반 폰트 사용 + 배경색으로 강조
     pdf.set_fill_color(255, 240, 240)
     pdf.cell(70, 10, "초기 구축 비용", 1, 0, 'C', True)
-    pdf.set_font("NanumGothic", size=10, style='B')
     pdf.cell(120, 10, "실부담금 0원 (수수료 내 쉐어 방식 상환)", 1, 1, 'R', True)
 
-    pdf.ln(5); pdf.set_font("NanumGothic", size=15); pdf.set_text_color(0, 0, 0)
+    pdf.ln(5); pdf.set_font("NanumGothic", size=15)
     pdf.cell(190, 10, "2. 수익 창출 근거: 왜 브이젠(V-GEN)인가?", "B", ln=True)
     pdf.ln(5); pdf.set_font("NanumGothic", size=10)
     
@@ -128,7 +125,7 @@ def generate_pro_report():
     return pdf.output(dest='S')
 
 # --- 5. 메인 UI (100% 유지) ---
-st.title("📑 V-GEN VPP 수익 분석 대시보드 v5.5")
+st.title("📑 V-GEN VPP 수익 분석 대시보드 v5.6")
 
 m1, m2, m3 = st.columns(3)
 m1.metric("기존 연간 수익", f"{total_rev_base/10000:,.0f} 만원")
@@ -171,7 +168,7 @@ st.table(pd.DataFrame({
     "브이젠 VPP": [f"{annual_gen:,.0f} kWh", f"{(fixed_p + owner_net_extra_unit):,.2f} 원", f"{total_rev_vpp/10000:,.0f} 만원", "0원 (상환 방식)"]
 }))
 
-# 최하단 PDF 대형 버튼 (버튼 명칭 수정 반영)
+# 최하단 PDF 대형 버튼
 st.divider()
 st.subheader("📄 분석 결과 보고서 추출")
 pdf_data = generate_pro_report()
