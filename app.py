@@ -6,7 +6,7 @@ from datetime import datetime
 import os
 
 # 페이지 설정
-st.set_page_config(page_title="V-GEN VPP 수익 분석기 v4.9", layout="wide")
+st.set_page_config(page_title="V-GEN VPP 수익 분석기 v4.8", layout="wide")
 
 # --- 폰트 설정 ---
 FONT_FILENAME = "NanumGothic.ttf"
@@ -71,7 +71,7 @@ total_rev_vpp = annual_gen * (fixed_p + owner_net_extra_unit)
 net_increase = total_rev_vpp - total_rev_base
 initial_investment = rtu_cost + data_device_cost
 
-# --- 4. PDF 생성 함수 (참여 전/후 비교 테이블 강화) ---
+# --- 4. PDF 생성 함수 (기존 강화된 전략 리포트 100% 유지) ---
 def generate_pro_report():
     pdf = FPDF()
     if os.path.exists(FONT_PATH):
@@ -85,37 +85,23 @@ def generate_pro_report():
     pdf.ln(12); pdf.cell(190, 10, "VPP 자산 가치 극대화 전략 리포트", ln=True, align='C')
     
     pdf.set_text_color(0, 0, 0); pdf.ln(30); pdf.set_font("NanumGothic", size=15)
-    pdf.cell(190, 10, "1. 항목별 수익 비교 (입찰 참여 전 vs 참여 후)", "B", ln=True)
-    pdf.ln(5); pdf.set_font("NanumGothic", size=9) # 테이블 가독성을 위해 폰트 살짝 조정
+    pdf.cell(190, 10, "1. 항목별 연간 기대 순수익 상세", "B", ln=True)
+    pdf.ln(5); pdf.set_font("NanumGothic", size=10)
     
-    # [수정] 3개 컬럼 비교 테이블 (항목 | 참여 전 | 참여 후 순수익)
     pdf.set_fill_color(240, 245, 255)
-    pdf.cell(55, 10, "정산 항목", 1, 0, 'C', True)
-    pdf.cell(65, 10, "입찰 참여 전 (기존 매전)", 1, 0, 'C', True)
-    pdf.cell(70, 10, "입찰 참여 후 (VPP 순수익)", 1, 1, 'C', True)
-    
-    # 5대 항목 출력
+    pdf.cell(60, 10, "정산 항목", 1, 0, 'C', True); pdf.cell(65, 10, "단가 (원/kWh)", 1, 0, 'C', True); pdf.cell(65, 10, "연간 예상 순수익", 1, 1, 'C', True)
     for item, unit in net_items.items():
-        pdf.cell(55, 10, item, 1, 0, 'C')
-        pdf.cell(65, 10, "0 원 (수익 없음)", 1, 0, 'C') # 참여 전은 모두 0원
-        item_annual = (unit * annual_gen) / 10000
-        pdf.cell(70, 10, f"{unit:.2f} 원/kWh ({item_annual:,.0f}만원)", 1, 1, 'C')
+        pdf.cell(60, 10, item, 1, 0, 'C')
+        pdf.cell(65, 10, f"{unit:.2f} 원", 1, 0, 'C')
+        pdf.cell(65, 10, f"{(unit * annual_gen)/10000:,.1f} 만원", 1, 1, 'C')
     
-    # 합계 행
-    pdf.set_font("NanumGothic", size=10); pdf.set_fill_color(230, 230, 230)
-    pdf.cell(55, 10, "추가 수익 합계", 1, 0, 'C', True)
-    pdf.cell(65, 10, "0 만원", 1, 0, 'C', True)
-    pdf.cell(70, 10, f"연간 +{net_increase/10000:,.0f} 만원", 1, 1, 'C', True)
-    
-    # [브이젠 강점 섹션 유지]
-    pdf.ln(8); pdf.set_font("NanumGothic", size=15)
+    pdf.ln(10); pdf.set_font("NanumGothic", size=15)
     pdf.cell(190, 10, "2. 결론: 왜 브이젠(V-GEN)과 함께해야 하는가?", "B", ln=True)
-    pdf.ln(4); pdf.set_font("NanumGothic", size=11); pdf.set_text_color(0, 50, 150)
+    pdf.ln(5); pdf.set_font("NanumGothic", size=11); pdf.set_text_color(0, 50, 150)
     pdf.cell(190, 8, "① 출력제어 리스크를 수익 기회로 전환 (MAP 보상 대응)", ln=True)
     pdf.cell(190, 8, "② 초격차 AI 입찰 엔진을 통한 에너지정산금(MEP) 수익 극대화", ln=True)
     
-    # [하단 피날레 박스 유지]
-    pdf.ln(8); pdf.set_fill_color(0, 32, 96); pdf.rect(10, pdf.get_y(), 190, 40, 'F')
+    pdf.ln(10); pdf.set_fill_color(0, 32, 96); pdf.rect(10, pdf.get_y(), 190, 40, 'F')
     pdf.set_text_color(255, 255, 255); pdf.set_y(pdf.get_y() + 8); pdf.set_font("NanumGothic", size=16)
     pdf.cell(190, 10, f"총 예상 연간 매출액: {total_rev_vpp/10000:,.0f} 만원", ln=True, align='C')
     pdf.set_font("NanumGothic", size=13)
@@ -124,8 +110,9 @@ def generate_pro_report():
     return pdf.output(dest='S')
 
 # --- 5. 메인 UI (100% 유지) ---
-st.title("📑 V-GEN VPP 수익 분석 대시보드 v4.9")
+st.title("📑 V-GEN VPP 수익 분석 대시보드 v4.8")
 
+# 상단 지표
 m1, m2, m3 = st.columns(3)
 m1.metric("기존 연간 수익", f"{total_rev_base/10000:,.0f} 만원")
 m2.metric("VPP 참여 연간 수익", f"{total_rev_vpp/10000:,.0f} 만원", f"+{net_increase/10000:,.0f} 만원")
@@ -167,15 +154,16 @@ st.table(pd.DataFrame({
     "브이젠 VPP": [f"{annual_gen:,.0f} kWh", f"{(fixed_p + owner_net_extra_unit):,.2f} 원", f"{total_rev_vpp/10000:,.0f} 만원", f"+ {net_increase/10000:,.0f} 만원"]
 }))
 
-# 하단 PDF 다운로드 버튼 (강조 유지)
+# --- 6. 하단 고정 PDF 다운로드 버튼 (강조 및 배치 수정) ---
 st.divider()
 st.subheader("📄 분석 결과 보고서 추출")
 pdf_data = generate_pro_report()
 if pdf_data:
     st.download_button(
-        label="📥 [클릭] 입찰 참여 전후 수익 비교표가 포함된 전문가 리포트 다운로드",
+        label="📥 [클릭] 모든 분석 내용이 포함된 전문가 컨설팅 리포트(PDF) 다운로드",
         data=bytes(pdf_data),
-        file_name=f"VGEN_Comparison_Strategic_Report.pdf",
+        file_name=f"VGEN_Strategic_Consulting_Report.pdf",
         mime="application/pdf",
-        use_container_width=True
+        use_container_width=True, # 버튼을 화면 꽉 차게 설정하여 가시성 극대화
+        help="항목별 수익 분석 및 브이젠의 독보적 기술력 대응 방안이 포함된 PDF를 다운로드합니다."
     )
