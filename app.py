@@ -2,20 +2,19 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 from fpdf import FPDF
-from datetime import datetime
 import os
 
 # 페이지 설정
-st.set_page_config(page_title="V-GEN VPP 수익 분석기 v4.8", layout="wide")
+st.set_page_config(page_title="V-GEN VPP 수익 분석기 v5.2", layout="wide")
 
 # --- 폰트 설정 ---
 FONT_FILENAME = "NanumGothic.ttf"
 FONT_PATH = os.path.join(os.getcwd(), FONT_FILENAME)
 
-# --- 1. 정책 데이터 (유지) ---
+# --- 1. 정책 데이터 (MWP 명칭 반영) ---
 region_config = {
-    "호남/육지 (입찰제 확대 모델)": {"cp": 11.0, "mep": 1.2, "map": 0.8, "asp": 0.5, "imb": -0.3},
-    "제주도 (입찰제 안착 모델)": {"cp": 22.0, "mep": 1.2, "map": 2.5, "asp": 1.0, "imb": -0.8}
+    "호남/육지 (입찰제 확대 모델)": {"cp": 11.0, "mep": 1.2, "map": 0.8, "mwp": 0.5, "imb": -0.3},
+    "제주도 (입찰제 안착 모델)": {"cp": 22.0, "mep": 1.2, "map": 2.5, "mwp": 1.0, "imb": -0.8}
 }
 
 # --- 2. 사이드바 (5번 수수료 / 6번 참여비용 분리 유지) ---
@@ -33,7 +32,7 @@ with st.sidebar:
     in_mep = st.number_input("1. 에너지 정산금(MEP)", value=conf['mep'])
     in_cp = st.number_input("2. 용량 정산금(CP)", value=conf['cp'])
     in_map = st.number_input("3. 기대이익 정산금(MAP)", value=conf['map'])
-    in_asp = st.number_input("4. 변동비보전 정산금(MWP)", value=conf['asp'])
+    in_mwp = st.number_input("4. 변동비보전 정산금(MWP)", value=conf['mwp']) # MWP로 최종 교정
     in_imb = st.number_input("5. 임밸런스 페널티(IMB)", value=conf['imb'])
 
     st.header("⚡ 4. VPP 기술력 민감도")
@@ -54,14 +53,14 @@ with st.sidebar:
     rtu_cost = st.number_input("RTU 설치비 (만원)", value=500)
     data_device_cost = st.number_input("신재생자료취득장치 (만원)", value=300)
 
-# --- 3. 수익 계산 로직 (유지) ---
+# --- 3. 수익 계산 로직 ---
 annual_gen = cap_mw * 1000 * gen_time * 365
 fee_factor = (1 - (vgen_fee_rate / 100))
 net_items = {
     "용량정산금(CP)": in_cp * fee_factor,
     "에너지정산금(MEP)": adj_mep * fee_factor,
-    "기대이익보상(MAP)": in_map * fee_factor,
-    "부가서비스(ASP)": in_asp * fee_factor,
+    "기대이익정산금(MAP)": in_map * fee_factor,
+    "변동비보전정산금(MWP)": in_mwp * fee_factor, # MWP 반영
     "임밸런스(IMB)": adj_imb * fee_factor
 }
 
@@ -71,7 +70,7 @@ total_rev_vpp = annual_gen * (fixed_p + owner_net_extra_unit)
 net_increase = total_rev_vpp - total_rev_base
 initial_investment = rtu_cost + data_device_cost
 
-# --- 4. PDF 생성 함수 (기존 강화된 전략 리포트 100% 유지) ---
+# --- 4. PDF 생성 함수 (MWP 명칭 반영 및 모든 레이아웃 유지) ---
 def generate_pro_report():
     pdf = FPDF()
     if os.path.exists(FONT_PATH):
@@ -85,23 +84,32 @@ def generate_pro_report():
     pdf.ln(12); pdf.cell(190, 10, "VPP 자산 가치 극대화 전략 리포트", ln=True, align='C')
     
     pdf.set_text_color(0, 0, 0); pdf.ln(30); pdf.set_font("NanumGothic", size=15)
-    pdf.cell(190, 10, "1. 항목별 연간 기대 순수익 상세", "B", ln=True)
-    pdf.ln(5); pdf.set_font("NanumGothic", size=10)
+    pdf.cell(190, 10, "1. 항목별 수익 비교 (입찰 참여 전 vs 참여 후)", "B", ln=True)
+    pdf.ln(5); pdf.set_font("NanumGothic", size=9)
     
     pdf.set_fill_color(240, 245, 255)
-    pdf.cell(60, 10, "정산 항목", 1, 0, 'C', True); pdf.cell(65, 10, "단가 (원/kWh)", 1, 0, 'C', True); pdf.cell(65, 10, "연간 예상 순수익", 1, 1, 'C', True)
-    for item, unit in net_items.items():
-        pdf.cell(60, 10, item, 1, 0, 'C')
-        pdf.cell(65, 10, f"{unit:.2f} 원", 1, 0, 'C')
-        pdf.cell(65, 10, f"{(unit * annual_gen)/10000:,.1f} 만원", 1, 1, 'C')
+    pdf.cell(55, 10, "정산 항목", 1, 0, 'C', True)
+    pdf.cell(65, 10, "입찰 참여 전 (기존 매전)", 1, 0, 'C', True)
+    pdf.cell(70, 10, "입찰 참여 후 (VPP 순수익)", 1, 1, 'C', True)
     
-    pdf.ln(10); pdf.set_font("NanumGothic", size=15)
+    for item, unit in net_items.items():
+        pdf.cell(55, 10, item, 1, 0, 'C')
+        pdf.cell(65, 10, "0 원", 1, 0, 'C')
+        item_annual = (unit * annual_gen) / 10000
+        pdf.cell(70, 10, f"{unit:.2f} 원/kWh ({item_annual:,.0f}만원)", 1, 1, 'C')
+    
+    pdf.set_font("NanumGothic", size=10); pdf.set_fill_color(230, 230, 230)
+    pdf.cell(55, 10, "추가 수익 합계", 1, 0, 'C', True)
+    pdf.cell(65, 10, "0 만원", 1, 0, 'C', True)
+    pdf.cell(70, 10, f"연간 +{net_increase/10000:,.0f} 만원", 1, 1, 'C', True)
+    
+    pdf.ln(8); pdf.set_font("NanumGothic", size=15)
     pdf.cell(190, 10, "2. 결론: 왜 브이젠(V-GEN)과 함께해야 하는가?", "B", ln=True)
-    pdf.ln(5); pdf.set_font("NanumGothic", size=11); pdf.set_text_color(0, 50, 150)
-    pdf.cell(190, 8, "① 출력제어 리스크를 수익 기회로 전환 (MAP 보상 대응)", ln=True)
+    pdf.ln(4); pdf.set_font("NanumGothic", size=11); pdf.set_text_color(0, 50, 150)
+    pdf.cell(190, 8, "① 출력제어 리스크를 수익 기회로 전환 (MAP/MWP 확보)", ln=True)
     pdf.cell(190, 8, "② 초격차 AI 입찰 엔진을 통한 에너지정산금(MEP) 수익 극대화", ln=True)
     
-    pdf.ln(10); pdf.set_fill_color(0, 32, 96); pdf.rect(10, pdf.get_y(), 190, 40, 'F')
+    pdf.ln(8); pdf.set_fill_color(0, 32, 96); pdf.rect(10, pdf.get_y(), 190, 40, 'F')
     pdf.set_text_color(255, 255, 255); pdf.set_y(pdf.get_y() + 8); pdf.set_font("NanumGothic", size=16)
     pdf.cell(190, 10, f"총 예상 연간 매출액: {total_rev_vpp/10000:,.0f} 만원", ln=True, align='C')
     pdf.set_font("NanumGothic", size=13)
@@ -109,10 +117,9 @@ def generate_pro_report():
 
     return pdf.output(dest='S')
 
-# --- 5. 메인 UI (100% 유지) ---
-st.title("📑 V-GEN VPP 수익 분석 대시보드 v4.8")
+# --- 5. 메인 UI ---
+st.title("📑 V-GEN VPP 수익 분석 대시보드 v5.2")
 
-# 상단 지표
 m1, m2, m3 = st.columns(3)
 m1.metric("기존 연간 수익", f"{total_rev_base/10000:,.0f} 만원")
 m2.metric("VPP 참여 연간 수익", f"{total_rev_vpp/10000:,.0f} 만원", f"+{net_increase/10000:,.0f} 만원")
@@ -125,17 +132,17 @@ with c1:
     st.subheader("📊 기술 격차에 따른 정산 단가 구성")
     vpp_fee_display = -(owner_net_extra_unit/(1-(vgen_fee_rate/100))*(vgen_fee_rate/100))
     fig = go.Figure(go.Waterfall(
-        x = ["기존단가", "CP", "MEP", "MAP", "ASP", "IMB", "수수료", "최종단가"],
-        y = [fixed_p, in_cp, adj_mep, in_map, in_asp, adj_imb, vpp_fee_display, 0],
+        x = ["기존단가", "CP", "MEP", "MAP", "MWP", "IMB", "수수료", "최종단가"],
+        y = [fixed_p, in_cp, adj_mep, in_map, in_mwp, adj_imb, vpp_fee_display, 0],
         measure = ["relative"]*7 + ["total"],
-        text = [f"{fixed_p}", f"+{in_cp}", f"+{adj_mep:.1f}", f"+{in_map}", f"+{in_asp}", f"{adj_imb:.1f}", f"{vpp_fee_display:.1f}", f"{(fixed_p + owner_net_extra_unit):.1f}"],
+        text = [f"{fixed_p}", f"+{in_cp}", f"+{adj_mep:.1f}", f"+{in_map}", f"+{in_mwp}", f"{adj_imb:.1f}", f"{vpp_fee_display:.1f}", f"{(fixed_p + owner_net_extra_unit):.1f}"],
         textposition = "outside"
     ))
     st.plotly_chart(fig, use_container_width=True)
 
 with c2:
     st.subheader("📋 실시간 분석 세부 정보")
-    with st.expander("⚡ 파트너별 기술 가중치", expanded=True):
+    with st.expander("⚡ 기술력 가중치 안내", expanded=True):
         st.write(f"**현재 설정:** {tech_option}")
         st.write(f"- MEP 수익 효율: **{tech_impact[tech_option]['mep_mult']}배**")
         st.write(f"- IMB 페널티 방어: **{tech_impact[tech_option]['imb_mult']}배**")
@@ -154,16 +161,15 @@ st.table(pd.DataFrame({
     "브이젠 VPP": [f"{annual_gen:,.0f} kWh", f"{(fixed_p + owner_net_extra_unit):,.2f} 원", f"{total_rev_vpp/10000:,.0f} 만원", f"+ {net_increase/10000:,.0f} 만원"]
 }))
 
-# --- 6. 하단 고정 PDF 다운로드 버튼 (강조 및 배치 수정) ---
+# 최하단 PDF 대형 버튼
 st.divider()
 st.subheader("📄 분석 결과 보고서 추출")
 pdf_data = generate_pro_report()
 if pdf_data:
     st.download_button(
-        label="📥 [클릭] 모든 분석 내용이 포함된 전문가 컨설팅 리포트(PDF) 다운로드",
+        label="📥 [클릭] 부가정산금(MAP/MWP)이 반영된 최종 전문가 리포트 다운로드",
         data=bytes(pdf_data),
-        file_name=f"VGEN_Strategic_Consulting_Report.pdf",
+        file_name="VGEN_Official_Report_v5.2.pdf",
         mime="application/pdf",
-        use_container_width=True, # 버튼을 화면 꽉 차게 설정하여 가시성 극대화
-        help="항목별 수익 분석 및 브이젠의 독보적 기술력 대응 방안이 포함된 PDF를 다운로드합니다."
+        use_container_width=True
     )
