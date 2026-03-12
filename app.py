@@ -56,8 +56,8 @@ with st.sidebar:
 
     st.header("💰 5. 참여 비용 및 수수료")
     vgen_fee_rate = st.slider("VPP 수수료 (%)", 0, 50, 20)
-    rtu_cost = st.number_input("RTU 설치비 (만원)", value=500)
-    data_device_cost = st.number_input("신재생자료취득장치 (만원)", value=300)
+    rtu_cost = st.number_input("RTU 설치비 (만원)", value=150)
+    data_device_cost = st.number_input("신재생자료취득장치 (만원)", value=150)
 
 # --- 3. 수익 계산 로직 ---
 annual_gen = cap_mw * 1000 * gen_time * 365
