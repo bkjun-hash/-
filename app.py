@@ -5,7 +5,7 @@ from fpdf import FPDF
 import os
 
 # 페이지 설정
-st.set_page_config(page_title="V-GEN VPP 수익 분석기 v5.4", layout="wide")
+st.set_page_config(page_title="V-GEN VPP 수익 분석기 v5.5", layout="wide")
 
 # --- 폰트 설정 ---
 FONT_FILENAME = "NanumGothic.ttf"
@@ -17,7 +17,7 @@ region_config = {
     "제주도 (입찰제 안착 모델)": {"cp": 22.0, "mep": 1.2, "map": 2.5, "mwp": 1.0, "imb": -0.8}
 }
 
-# --- 2. 사이드바 (6번 참여 비용을 상환 모델로 변경) ---
+# --- 2. 사이드바 (참여 비용 상환 모델 유지) ---
 with st.sidebar:
     st.header("📍 1. 지역 및 제도 설정")
     selected_region = st.selectbox("지역 선택", list(region_config.keys()))
@@ -51,10 +51,9 @@ with st.sidebar:
 
     st.header("🛠️ 6. 참여 비용 (상환 모델)")
     st.info("💡 RTU(150만) + 신자취(150만) 총 300만원은 수수료 쉐어를 통해 분할 상환되므로 사업주 실부담금은 0원입니다.")
-    repayment_option = st.checkbox("수수료 내 초기 비용 상환 적용", value=True)
-    initial_investment = 300 # 고정 비용
+    initial_investment_desc = "300만원 (수수료 쉐어 상환 방식)"
 
-# --- 3. 수익 계산 로직 (유지) ---
+# --- 3. 수익 계산 로직 ---
 annual_gen = cap_mw * 1000 * gen_time * 365
 fee_factor = (1 - (vgen_fee_rate / 100))
 net_items = {
@@ -70,7 +69,7 @@ total_rev_base = annual_gen * fixed_p
 total_rev_vpp = annual_gen * (fixed_p + owner_net_extra_unit)
 net_increase = total_rev_vpp - total_rev_base
 
-# --- 4. PDF 생성 함수 (Why 섹션 유지 및 상환 모델 문구 추가) ---
+# --- 4. PDF 생성 함수 (참여 비용 상환 명문화 추가) ---
 def generate_pro_report():
     pdf = FPDF()
     if os.path.exists(FONT_PATH):
@@ -96,9 +95,11 @@ def generate_pro_report():
         item_annual = (unit * annual_gen) / 10000
         pdf.cell(120, 10, f" + {item_annual:,.0f} 만원", 1, 1, 'R')
     
-    # 상환 모델 강조 문구 추가
-    pdf.ln(2); pdf.set_font("NanumGothic", size=10); pdf.set_text_color(255, 0, 0)
-    pdf.cell(190, 8, "※ 초기 인프라 구축비(RTU/신자취)는 수수료 쉐어 상환 모델로 진행되어 사업주 실지출은 없습니다.", ln=True, align='R')
+    # [추가] 참여 비용 상환 항목 명문화
+    pdf.set_fill_color(255, 240, 240)
+    pdf.cell(70, 10, "초기 구축 비용", 1, 0, 'C', True)
+    pdf.set_font("NanumGothic", size=10, style='B')
+    pdf.cell(120, 10, "실부담금 0원 (수수료 내 쉐어 방식 상환)", 1, 1, 'R', True)
 
     pdf.ln(5); pdf.set_font("NanumGothic", size=15); pdf.set_text_color(0, 0, 0)
     pdf.cell(190, 10, "2. 수익 창출 근거: 왜 브이젠(V-GEN)인가?", "B", ln=True)
@@ -106,7 +107,7 @@ def generate_pro_report():
     
     reasons = [
         ("에너지정산금(MEP) 극대화", "V-GEN의 고성능 AI 예측 엔진은 오차를 최소화하여 일반 업체 대비 최대 4배 높은 MEP 수익을 확보합니다."),
-        ("초기 투자 비용 Zero", "RTU 설치 및 신재생자료취득장치 도입 비용을 수익금 분할 상환 방식으로 처리하여 초기 부담을 완전히 제거했습니다."),
+        ("초기 투자 비용 Zero (상환제)", "RTU 및 신재생자료취득장치(총 300만원) 설치비를 수수료에서 분할 차감하는 방식으로 사업주의 실질 지출이 전혀 없습니다."),
         ("부가정산금(MAP/MWP) 보호", "출력 제어 발생 시에도 기대이익(MAP)과 변동비(MWP)를 보전받아 손실을 수익으로 전환합니다."),
         ("임밸런스(IMB) 리스크 방어", "정밀한 입찰 제어를 통해 예측 실패로 인한 페널티를 철저히 방어하여 순수익을 지켜냅니다.")
     ]
@@ -126,13 +127,13 @@ def generate_pro_report():
 
     return pdf.output(dest='S')
 
-# --- 5. 메인 UI ---
-st.title("📑 V-GEN VPP 수익 분석 대시보드 v5.4")
+# --- 5. 메인 UI (100% 유지) ---
+st.title("📑 V-GEN VPP 수익 분석 대시보드 v5.5")
 
 m1, m2, m3 = st.columns(3)
 m1.metric("기존 연간 수익", f"{total_rev_base/10000:,.0f} 만원")
 m2.metric("VPP 참여 연간 수익", f"{total_rev_vpp/10000:,.0f} 만원", f"+{net_increase/10000:,.0f} 만원")
-m3.metric("최종 순수익 증분", f"{owner_net_extra_unit:.2f} 원/kWh", "사업주 초기 부담 0원")
+m3.metric("초기 부담금", "0원", "수수료 쉐어 상환")
 
 st.divider()
 
@@ -155,9 +156,9 @@ with c2:
         st.write(f"**현재 설정:** {tech_option}")
         st.write(f"- MEP 수익 효율: **{tech_impact[tech_option]['mep_mult']}배**")
         st.write(f"- IMB 페널티 방어: **{tech_impact[tech_option]['imb_mult']}배**")
-    with st.expander("💰 수수료 및 참여 비용"):
+    with st.expander("💰 수수료 및 상환 모델"):
         st.write(f"- 운영 수수료: **{vgen_fee_rate}%**")
-        st.success("✅ RTU/신자취 비용 300만원은 수수료 내에서 상환됩니다. (사업주 실부담 0원)")
+        st.success("✅ 초기 인프라 비용(300만원)은 별도 청구 없이 수수료 내에서 상환 처리됩니다.")
 
 st.divider()
 st.subheader("🚀 전력시장 패러다임 변화 안내")
@@ -167,18 +168,18 @@ st.warning("⚠️ 육지 전역 재생에너지 입찰 시장 확대 시행에 
 st.table(pd.DataFrame({
     "구분": ["연간 발전량", "VPP 정산 단가", "연간 총 매출액", "초기 투자 비용"],
     "기본 매전": [f"{annual_gen:,.0f} kWh", f"{fixed_p:,.1f} 원", f"{total_rev_base/10000:,.0f} 만원", "-"],
-    "브이젠 VPP": [f"{annual_gen:,.0f} kWh", f"{(fixed_p + owner_net_extra_unit):,.2f} 원", f"{total_rev_vpp/10000:,.0f} 만원", "0원 (수수료 상환)"]
+    "브이젠 VPP": [f"{annual_gen:,.0f} kWh", f"{(fixed_p + owner_net_extra_unit):,.2f} 원", f"{total_rev_vpp/10000:,.0f} 만원", "0원 (상환 방식)"]
 }))
 
-# 최하단 PDF 대형 버튼
+# 최하단 PDF 대형 버튼 (버튼 명칭 수정 반영)
 st.divider()
 st.subheader("📄 분석 결과 보고서 추출")
 pdf_data = generate_pro_report()
 if pdf_data:
     st.download_button(
-        label="📥 [클릭] 초기 비용 Zero 상환 모델이 반영된 전략 리포트 다운로드",
+        label="📥 [클릭]VPP 자산 가치 극대화 전략 리포트",
         data=bytes(pdf_data),
-        file_name="VGEN_Zero_Cost_Report.pdf",
+        file_name="VGEN_Strategic_Profit_Report.pdf",
         mime="application/pdf",
         use_container_width=True
     )
