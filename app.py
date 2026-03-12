@@ -5,13 +5,13 @@ from fpdf import FPDF
 import os
 
 # 페이지 설정
-st.set_page_config(page_title="V-GEN VPP 수익 분석기 v5.9", layout="wide")
+st.set_page_config(page_title="V-GEN VPP 수익 분석기 v6.0", layout="wide")
 
 # --- 폰트 설정 ---
 FONT_FILENAME = "NanumGothic.ttf"
 FONT_PATH = os.path.join(os.getcwd(), FONT_FILENAME)
 
-# --- 1. 정책 데이터 (유지) ---
+# --- 1. 정책 데이터 (100% 유지) ---
 region_config = {
     "호남/육지 (입찰제 확대 모델)": {"cp": 11.0, "mep": 1.2, "map": 0.8, "mwp": 0.5, "imb": -0.3},
     "제주도 (입찰제 안착 모델)": {"cp": 22.0, "mep": 1.2, "map": 2.5, "mwp": 1.0, "imb": -0.8}
@@ -52,7 +52,7 @@ with st.sidebar:
     st.header("🛠️ 6. 참여 비용 및 상환 정책")
     st.info("💡 RTU(150만) + 신자취(150만) = 총 300만원\n\n해당 비용은 VPP 추가 수익으로 우선 상환됩니다.")
 
-# --- 3. 수익 계산 로직 ---
+# --- 3. 수익 계산 로직 (유지) ---
 annual_gen = cap_mw * 1000 * gen_time * 365
 gross_extra_unit = in_cp + adj_mep + in_map + in_mwp + adj_imb
 annual_gross_extra = annual_gen * gross_extra_unit
@@ -69,7 +69,7 @@ total_rev_vpp_after = annual_gen * (fixed_p + owner_net_extra_unit)
 net_increase = total_rev_vpp_after - total_rev_base
 payback_months = (3000000 / (annual_gross_extra / 12)) if annual_gross_extra > 0 else 0
 
-# --- 4. PDF 생성 함수 (상환 로직 명문화 유지) ---
+# --- 4. PDF 생성 함수 (기존 연간 매출액 한 줄 추가) ---
 def generate_pro_report():
     pdf = FPDF()
     if os.path.exists(FONT_PATH):
@@ -80,6 +80,7 @@ def generate_pro_report():
     pdf.set_fill_color(0, 32, 96); pdf.rect(0, 0, 210, 45, 'F')
     pdf.set_text_color(255, 255, 255); pdf.set_font("NanumGothic", size=22)
     pdf.ln(12); pdf.cell(190, 10, "VPP 자산 가치 극대화 전략 리포트", ln=True, align='C')
+    
     pdf.set_text_color(0, 0, 0); pdf.ln(30); pdf.set_font("NanumGothic", size=15)
     pdf.cell(190, 10, "1. 입찰 참여를 통한 연간 순증가 수익 상세", "B", ln=True)
     pdf.ln(5); pdf.set_font("NanumGothic", size=10)
@@ -93,6 +94,7 @@ def generate_pro_report():
     pdf.set_fill_color(255, 240, 240)
     pdf.cell(70, 10, "초기 구축 비용", 1, 0, 'C', True)
     pdf.cell(120, 10, f"0원 (추가 수익으로 우선 상환 / 약 {payback_months:.1f}개월)", 1, 1, 'R', True)
+    
     pdf.ln(5); pdf.set_font("NanumGothic", size=15)
     pdf.cell(190, 10, "2. 수익 창출 근거: 왜 브이젠(V-GEN)인가?", "B", ln=True)
     pdf.ln(5); pdf.set_font("NanumGothic", size=10)
@@ -105,17 +107,21 @@ def generate_pro_report():
     for title, desc in reasons:
         pdf.set_font("NanumGothic", size=11); pdf.set_text_color(0, 50, 150); pdf.cell(190, 7, f"■ {title}", ln=True)
         pdf.set_font("NanumGothic", size=9); pdf.set_text_color(50, 50, 50); pdf.multi_cell(180, 6, desc); pdf.ln(2)
-    pdf.ln(5); pdf.set_fill_color(0, 32, 96); pdf.rect(10, pdf.get_y(), 190, 40, 'F')
-    pdf.set_text_color(255, 255, 255); pdf.set_y(pdf.get_y() + 8); pdf.set_font("NanumGothic", size=16)
-    pdf.cell(190, 10, f"총 예상 연간 매출액: {total_rev_vpp_after/10000:,.0f} 만원", ln=True, align='C')
+
+    # 최하단 박스 (기존 매출액 한 줄 추가)
+    pdf.ln(5); pdf.set_fill_color(0, 32, 96); pdf.rect(10, pdf.get_y(), 190, 48, 'F')
+    pdf.set_text_color(255, 255, 255); pdf.set_y(pdf.get_y() + 6)
+    pdf.set_font("NanumGothic", size=12)
+    pdf.cell(190, 8, f"기존 연간 매출액: {total_rev_base/10000:,.0f} 만원", ln=True, align='C')
+    pdf.set_font("NanumGothic", size=16)
+    pdf.cell(190, 10, f"VPP 참여 총 예상 연간 매출액: {total_rev_vpp_after/10000:,.0f} 만원", ln=True, align='C')
     pdf.set_font("NanumGothic", size=13)
     pdf.cell(190, 10, f"▶ 상환 완료 후 연간 추가 순수익: {net_increase/10000:,.0f} 만원", ln=True, align='C')
     return pdf.output(dest='S')
 
-# --- 5. 메인 UI (최상단 지표 세분화) ---
-st.title("📑 V-GEN VPP 수익 분석 대시보드 v5.9")
+# --- 5. 메인 UI (100% 유지) ---
+st.title("📑 V-GEN VPP 수익 분석 대시보드 v6.0")
 
-# 세분화된 5대 지표
 m1, m2, m3, m4, m5 = st.columns(5)
 m1.metric("기존 연간 수익", f"{total_rev_base/10000:,.0f} 만원")
 m2.metric("상환 중 수익", f"{(total_rev_base + annual_gross_extra)/10000:,.0f} 만원", "수익 전액 상환 활용")
