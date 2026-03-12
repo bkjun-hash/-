@@ -5,7 +5,7 @@ from fpdf import FPDF
 import os
 
 # 페이지 설정
-st.set_page_config(page_title="V-GEN VPP 수익 분석기 v5.8", layout="wide")
+st.set_page_config(page_title="V-GEN VPP 수익 분석기 v5.9", layout="wide")
 
 # --- 폰트 설정 ---
 FONT_FILENAME = "NanumGothic.ttf"
@@ -17,7 +17,7 @@ region_config = {
     "제주도 (입찰제 안착 모델)": {"cp": 22.0, "mep": 1.2, "map": 2.5, "mwp": 1.0, "imb": -0.8}
 }
 
-# --- 2. 사이드바 (기존 항목 100% 유지 + 상환 안내 추가) ---
+# --- 2. 사이드바 (기존 1~6번 항목 100% 유지) ---
 with st.sidebar:
     st.header("📍 1. 지역 및 제도 설정")
     selected_region = st.selectbox("지역 선택", list(region_config.keys()))
@@ -50,92 +50,78 @@ with st.sidebar:
     vgen_fee_rate = st.slider("상환 완료 후 수수료율 (%)", 0, 50, 20)
 
     st.header("🛠️ 6. 참여 비용 및 상환 정책")
-    st.info("💡 RTU(150만) + 신자취(150만) = 총 300만원\n\n해당 비용은 VPP 참여로 창출되는 **'추가 수익'**으로 우선 상환되며, 상환 중에는 사업주 실부담금이 0원입니다.")
+    st.info("💡 RTU(150만) + 신자취(150만) = 총 300만원\n\n해당 비용은 VPP 추가 수익으로 우선 상환됩니다.")
 
 # --- 3. 수익 계산 로직 ---
 annual_gen = cap_mw * 1000 * gen_time * 365
-# 상환용: 수수료 차감 전 추가 정산금 합계
 gross_extra_unit = in_cp + adj_mep + in_map + in_mwp + adj_imb
 annual_gross_extra = annual_gen * gross_extra_unit
 
-# 상환 후: 수수료 적용 후 순수익
 fee_factor = (1 - (vgen_fee_rate / 100))
 net_items = {
-    "용량정산금(CP)": in_cp * fee_factor,
-    "에너지정산금(MEP)": adj_mep * fee_factor,
-    "기대이익정산금(MAP)": in_map * fee_factor,
-    "변동비보전정산금(MWP)": in_mwp * fee_factor,
+    "용량정산금(CP)": in_cp * fee_factor, "에너지정산금(MEP)": adj_mep * fee_factor,
+    "기대이익정산금(MAP)": in_map * fee_factor, "변동비보전정산금(MWP)": in_mwp * fee_factor,
     "임밸런스(IMB)": adj_imb * fee_factor
 }
 owner_net_extra_unit = sum(net_items.values())
 total_rev_base = annual_gen * fixed_p
-total_rev_vpp = annual_gen * (fixed_p + owner_net_extra_unit)
-net_increase = total_rev_vpp - total_rev_base
+total_rev_vpp_after = annual_gen * (fixed_p + owner_net_extra_unit)
+net_increase = total_rev_vpp_after - total_rev_base
 payback_months = (3000000 / (annual_gross_extra / 12)) if annual_gross_extra > 0 else 0
 
-# --- 4. PDF 생성 함수 (항목 유지 + 상환 문구 최적화) ---
+# --- 4. PDF 생성 함수 (상환 로직 명문화 유지) ---
 def generate_pro_report():
     pdf = FPDF()
     if os.path.exists(FONT_PATH):
         pdf.add_font("NanumGothic", "", FONT_PATH, uni=True)
         pdf.set_font("NanumGothic", size=11)
     else: return None
-    
     pdf.add_page()
     pdf.set_fill_color(0, 32, 96); pdf.rect(0, 0, 210, 45, 'F')
     pdf.set_text_color(255, 255, 255); pdf.set_font("NanumGothic", size=22)
     pdf.ln(12); pdf.cell(190, 10, "VPP 자산 가치 극대화 전략 리포트", ln=True, align='C')
-    
     pdf.set_text_color(0, 0, 0); pdf.ln(30); pdf.set_font("NanumGothic", size=15)
     pdf.cell(190, 10, "1. 입찰 참여를 통한 연간 순증가 수익 상세", "B", ln=True)
     pdf.ln(5); pdf.set_font("NanumGothic", size=10)
-    
     pdf.set_fill_color(240, 245, 255)
     pdf.cell(70, 10, "정산 항목", 1, 0, 'C', True)
     pdf.cell(120, 10, "연간 추가 수익 (상환 후 기준 예상치)", 1, 1, 'C', True)
-    
     for item, unit in net_items.items():
         pdf.cell(70, 10, item, 1, 0, 'C')
         item_annual = (unit * annual_gen) / 10000
         pdf.cell(120, 10, f" + {item_annual:,.0f} 만원", 1, 1, 'R')
-    
     pdf.set_fill_color(255, 240, 240)
     pdf.cell(70, 10, "초기 구축 비용", 1, 0, 'C', True)
-    pdf.cell(120, 10, f"0원 (추가 수익으로 우선 상환 / 약 {payback_months:.1f}개월 소요)", 1, 1, 'R', True)
-
+    pdf.cell(120, 10, f"0원 (추가 수익으로 우선 상환 / 약 {payback_months:.1f}개월)", 1, 1, 'R', True)
     pdf.ln(5); pdf.set_font("NanumGothic", size=15)
     pdf.cell(190, 10, "2. 수익 창출 근거: 왜 브이젠(V-GEN)인가?", "B", ln=True)
     pdf.ln(5); pdf.set_font("NanumGothic", size=10)
-    
     reasons = [
-        ("에너지정산금(MEP) 극대화", "V-GEN의 AI 입찰 기술은 오차를 최소화하여 상환 속도를 앞당기고 사업주 수익을 극대화합니다."),
-        ("수익 기반 선상환 모델", "설치비 300만원은 VPP 참여로 발생하는 '새로운 수익'에서 먼저 차감됩니다. 기존 수익은 100% 보존됩니다."),
-        ("상환 후 지속적 보너스", "구축비 상환이 완료되면, 발생되는 추가 수익은 약정된 수수료를 제외하고 모두 사업주의 순수익이 됩니다."),
-        ("부가정산금(MAP/MWP) 보호", "출력 제어 발생 시에도 기대이익(MAP)과 변동비(MWP)를 보전받아 손실을 수익으로 전환합니다.")
+        ("에너지정산금(MEP) 극대화", "V-GEN의 AI 입찰 기술은 오차를 최소화하여 상환 속도를 앞당깁니다."),
+        ("수익 기반 선상환 모델", "설치비는 VPP 추가 수익에서 먼저 차감됩니다. 기존 수익은 100% 보존됩니다."),
+        ("상환 후 지속적 보너스", "상환 완료 후 추가 수익은 약정 수수료 제외 후 모두 사업주 순수익이 됩니다."),
+        ("부가정산금(MAP/MWP) 보호", "출력 제어 발생 시에도 기대이익(MAP)과 변동비(MWP)를 보전받아 수익화합니다.")
     ]
-    
     for title, desc in reasons:
-        pdf.set_font("NanumGothic", size=11); pdf.set_text_color(0, 50, 150)
-        pdf.cell(190, 7, f"■ {title}", ln=True)
-        pdf.set_font("NanumGothic", size=9); pdf.set_text_color(50, 50, 50)
-        pdf.multi_cell(180, 6, desc)
-        pdf.ln(2)
-
+        pdf.set_font("NanumGothic", size=11); pdf.set_text_color(0, 50, 150); pdf.cell(190, 7, f"■ {title}", ln=True)
+        pdf.set_font("NanumGothic", size=9); pdf.set_text_color(50, 50, 50); pdf.multi_cell(180, 6, desc); pdf.ln(2)
     pdf.ln(5); pdf.set_fill_color(0, 32, 96); pdf.rect(10, pdf.get_y(), 190, 40, 'F')
     pdf.set_text_color(255, 255, 255); pdf.set_y(pdf.get_y() + 8); pdf.set_font("NanumGothic", size=16)
-    pdf.cell(190, 10, f"총 예상 연간 매출액: {total_rev_vpp/10000:,.0f} 만원", ln=True, align='C')
+    pdf.cell(190, 10, f"총 예상 연간 매출액: {total_rev_vpp_after/10000:,.0f} 만원", ln=True, align='C')
     pdf.set_font("NanumGothic", size=13)
     pdf.cell(190, 10, f"▶ 상환 완료 후 연간 추가 순수익: {net_increase/10000:,.0f} 만원", ln=True, align='C')
-
     return pdf.output(dest='S')
 
-# --- 5. 메인 UI ---
-st.title("📑 V-GEN VPP 수익 분석 대시보드 v5.8")
+# --- 5. 메인 UI (최상단 지표 세분화) ---
+st.title("📑 V-GEN VPP 수익 분석 대시보드 v5.9")
 
-m1, m2, m3 = st.columns(3)
+# 세분화된 5대 지표
+m1, m2, m3, m4, m5 = st.columns(5)
 m1.metric("기존 연간 수익", f"{total_rev_base/10000:,.0f} 만원")
-m2.metric("VPP 상환 후 예상 수익", f"{total_rev_vpp/10000:,.0f} 만원", f"+{net_increase/10000:,.0f} 만원")
-m3.metric("초기 투자 지출", "0원", f"상환 소요: 약 {payback_months:.1f}개월")
+m2.metric("상환 중 수익", f"{(total_rev_base + annual_gross_extra)/10000:,.0f} 만원", "수익 전액 상환 활용")
+m3.metric("상환 후 수익", f"{total_rev_vpp_after/10000:,.0f} 만원", f"수수료 {vgen_fee_rate}% 차감")
+m4.metric("연간 순증분", f"+{net_increase/10000:,.0f} 만원", f"{owner_net_extra_unit:.1f} 원/kWh")
+m5.metric("초기 부담금", "0원", f"상환: 약 {payback_months:.1f}개월")
 
 st.divider()
 
@@ -161,17 +147,17 @@ with c2:
     with st.expander("💰 상환 시뮬레이션"):
         st.success(f"📍 **예상 상환 기간: {payback_months:.1f}개월**")
         st.write(f"- 월 평균 추가 수익: {annual_gross_extra/120000:,.1f} 만원")
-        st.write(f"- 운영 수수료({vgen_fee_rate}%)는 상환 완료 시점부터 적용됩니다.")
+        st.write(f"- 기존 수익 유지율: **100%**")
 
 st.divider()
 st.subheader("🚀 전력시장 패러다임 변화 안내")
 st.warning("⚠️ 육지 전역 재생에너지 입찰 시장 확대 시행에 따라 \"예측정산금\" 제도는 공식 일몰되어질 예정입니다.")
 
-# 하단 요약 테이블 (모든 항목 총괄 비교)
+# 하단 요약 테이블
 st.table(pd.DataFrame({
     "구분": ["연간 발전량", "VPP 정산 단가", "연간 총 매출액", "실질 참여 비용"],
     "기본 매전": [f"{annual_gen:,.0f} kWh", f"{fixed_p:,.1f} 원", f"{total_rev_base/10000:,.0f} 만원", "-"],
-    "브이젠 VPP": [f"{annual_gen:,.0f} kWh", f"{(fixed_p + owner_net_extra_unit):,.2f} 원", f"{total_rev_vpp/10000:,.0f} 만원", "0원 (선수익 상환)"]
+    "브이젠 VPP": [f"{annual_gen:,.0f} kWh", f"{(fixed_p + owner_net_extra_unit):,.2f} 원", f"{total_rev_vpp_after/10000:,.0f} 만원", "0원 (선수익 상환)"]
 }))
 
 # 최하단 PDF 대형 버튼
@@ -179,10 +165,4 @@ st.divider()
 st.subheader("📄 분석 결과 보고서 추출")
 pdf_data = generate_pro_report()
 if pdf_data:
-    st.download_button(
-        label="📥 [클릭]VPP 자산 가치 극대화 전략 리포트",
-        data=bytes(pdf_data),
-        file_name="VGEN_Strategic_Profit_Report.pdf",
-        mime="application/pdf",
-        use_container_width=True
-    )
+    st.download_button(label="📥 [클릭]VPP 자산 가치 극대화 전략 리포트", data=bytes(pdf_data), file_name="VGEN_Strategic_Profit_Report.pdf", mime="application/pdf", use_container_width=True)
