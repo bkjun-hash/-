@@ -32,8 +32,8 @@ with st.sidebar:
     st.header("📊 3. 5대 정산 항목 (Base)")
     in_mep = st.number_input("1. 에너지 정산금(MEP)", value=conf['mep'])
     in_cp = st.number_input("2. 용량 정산금(CP)", value=conf['cp'])
-    in_map = st.number_input("3. 기대이익 보상(MAP)", value=conf['map'])
-    in_asp = st.number_input("4. 부가 서비스(ASP)", value=conf['asp'])
+    in_map = st.number_input("3. 기대이익 정산금(MAP)", value=conf['map'])
+    in_asp = st.number_input("4. 변동비보전 정산금(MWP)", value=conf['asp'])
     in_imb = st.number_input("5. 임밸런스 페널티(IMB)", value=conf['imb'])
 
     st.header("⚡ 4. VPP 기술력 민감도")
