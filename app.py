@@ -51,8 +51,8 @@ with st.sidebar:
     vgen_fee_rate = st.slider("수수료율 (%)", 0, 50, 20)
 
     st.header("🛠️ 6. 참여 비용 (CAPEX)")
-    rtu_cost = st.number_input("RTU 설치비 (만원)", value=500)
-    data_device_cost = st.number_input("신재생자료취득장치 (만원)", value=300)
+    rtu_cost = st.number_input("RTU 설치비 (만원)", value=150)
+    data_device_cost = st.number_input("신재생자료취득장치 (만원)", value=150)
 
 # --- 3. 수익 계산 로직 (유지) ---
 annual_gen = cap_mw * 1000 * gen_time * 365
