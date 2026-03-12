@@ -48,7 +48,9 @@ with st.sidebar:
     adj_mep = in_mep * tech_impact[tech_option]["mep_mult"]
     adj_imb = in_imb * tech_impact[tech_option]["imb_mult"]
 
-    st.header("💰 5. 참여 비용 및 수수료")
+    st.header("💰 5. 수수료")
+    vgen_fee_rate = st.slider("VPP 수수료 (%)", 0, 50, 20)
+    st.header("💰 6. 참여 비용")
     vgen_fee_rate = st.slider("VPP 수수료 (%)", 0, 50, 20)
     rtu_cost = st.number_input("RTU 설치비 (만원)", value=150)
     data_device_cost = st.number_input("신재생자료취득장치 (만원)", value=150)
