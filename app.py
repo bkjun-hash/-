@@ -6,7 +6,7 @@ from datetime import datetime
 import os
 
 # 페이지 설정
-st.set_page_config(page_title="V-GEN VPP 수익 분석기 v4.6", layout="wide")
+st.set_page_config(page_title="V-GEN VPP 수익 분석기 v4.7", layout="wide")
 
 # --- 폰트 설정 ---
 FONT_FILENAME = "NanumGothic.ttf"
@@ -18,7 +18,7 @@ region_config = {
     "제주도 (입찰제 안착 모델)": {"cp": 22.0, "mep": 1.2, "map": 2.5, "asp": 1.0, "imb": -0.8}
 }
 
-# --- 2. 사이드바 (전 기능 유지) ---
+# --- 2. 사이드바 (5번 수수료와 6번 참여 비용 분리) ---
 with st.sidebar:
     st.header("📍 1. 지역 및 제도 설정")
     selected_region = st.selectbox("지역 선택", list(region_config.keys()))
@@ -48,14 +48,15 @@ with st.sidebar:
     adj_mep = in_mep * tech_impact[tech_option]["mep_mult"]
     adj_imb = in_imb * tech_impact[tech_option]["imb_mult"]
 
-    st.header("💰 5. 수수료")
-    vgen_fee_rate = st.slider("VPP 수수료 (%)", 0, 50, 20)
-    st.header("💰 6. 참여 비용")
-    vgen_fee_rate = st.slider("VPP 수수료 (%)", 0, 50, 20)
-    rtu_cost = st.number_input("RTU 설치비 (만원)", value=150)
-    data_device_cost = st.number_input("신재생자료취득장치 (만원)", value=150)
+    # --- 분리된 섹션 ---
+    st.header("💰 5. VPP 수수료 설정")
+    vgen_fee_rate = st.slider("수수료율 (%)", 0, 50, 20)
 
-# --- 3. 수익 계산 로직 ---
+    st.header("🛠️ 6. 참여 비용 (CAPEX)")
+    rtu_cost = st.number_input("RTU 설치비 (만원)", value=500)
+    data_device_cost = st.number_input("신재생자료취득장치 (만원)", value=300)
+
+# --- 3. 수익 계산 로직 (유지) ---
 annual_gen = cap_mw * 1000 * gen_time * 365
 fee_factor = (1 - (vgen_fee_rate / 100))
 net_items = {
@@ -72,7 +73,7 @@ total_rev_vpp = annual_gen * (fixed_p + owner_net_extra_unit)
 net_increase = total_rev_vpp - total_rev_base
 initial_investment = rtu_cost + data_device_cost
 
-# --- 4. PDF 생성 함수 (하단 추가 수익 한 줄 삽입) ---
+# --- 4. PDF 생성 함수 (기존 강화된 내용 100% 유지) ---
 def generate_pro_report():
     pdf = FPDF()
     if os.path.exists(FONT_PATH):
@@ -80,7 +81,6 @@ def generate_pro_report():
         pdf.set_font("NanumGothic", size=11)
     else: return None
     
-    # [Page 1] 기존 내용 유지
     pdf.add_page()
     pdf.set_fill_color(0, 32, 96); pdf.rect(0, 0, 210, 45, 'F')
     pdf.set_text_color(255, 255, 255); pdf.set_font("NanumGothic", size=22)
@@ -90,7 +90,6 @@ def generate_pro_report():
     pdf.cell(190, 10, "1. 항목별 연간 기대 순수익 상세", "B", ln=True)
     pdf.ln(5); pdf.set_font("NanumGothic", size=10)
     
-    # 항목 테이블
     pdf.set_fill_color(240, 245, 255)
     pdf.cell(60, 10, "정산 항목", 1, 0, 'C', True); pdf.cell(65, 10, "단가 (원/kWh)", 1, 0, 'C', True); pdf.cell(65, 10, "연간 예상 순수익", 1, 1, 'C', True)
     for item, unit in net_items.items():
@@ -98,34 +97,27 @@ def generate_pro_report():
         pdf.cell(65, 10, f"{unit:.2f} 원", 1, 0, 'C')
         pdf.cell(65, 10, f"{(unit * annual_gen)/10000:,.1f} 만원", 1, 1, 'C')
     
-    # [브이젠 강점 섹션 유지]
     pdf.ln(10); pdf.set_font("NanumGothic", size=15)
     pdf.cell(190, 10, "2. 결론: 왜 브이젠(V-GEN)과 함께해야 하는가?", "B", ln=True)
-    pdf.ln(5)
-    pdf.set_font("NanumGothic", size=11); pdf.set_text_color(0, 50, 150)
+    pdf.ln(5); pdf.set_font("NanumGothic", size=11); pdf.set_text_color(0, 50, 150)
     pdf.cell(190, 8, "① 출력제어 리스크를 수익 기회로 전환 (MAP 보상 대응)", ln=True)
-    pdf.set_font("NanumGothic", size=11); pdf.cell(190, 8, "② 초격차 AI 입찰 엔진을 통한 에너지정산금(MEP) 수익 극대화", ln=True)
+    pdf.cell(190, 8, "② 초격차 AI 입찰 엔진을 통한 에너지정산금(MEP) 수익 극대화", ln=True)
     
-    # [하단 피날레 박스: 총 매출 + 추가 수익 한 줄]
     pdf.ln(10); pdf.set_fill_color(0, 32, 96); pdf.rect(10, pdf.get_y(), 190, 40, 'F')
-    pdf.set_text_color(255, 255, 255)
-    pdf.set_y(pdf.get_y() + 8)
-    pdf.set_font("NanumGothic", size=16)
+    pdf.set_text_color(255, 255, 255); pdf.set_y(pdf.get_y() + 8); pdf.set_font("NanumGothic", size=16)
     pdf.cell(190, 10, f"총 예상 연간 매출액: {total_rev_vpp/10000:,.0f} 만원", ln=True, align='C')
-    
-    # 요청하신 추가 수익 한 줄 (Bold 스타일 효과를 위해 폰트 크기 유지)
     pdf.set_font("NanumGothic", size=13)
     pdf.cell(190, 10, f"▶ 입찰 참여 시 기존 대비 연간 추가 순수익: {net_increase/10000:,.0f} 만원", ln=True, align='C')
 
     return pdf.output(dest='S')
 
 # --- 5. 메인 UI (전 기능 100% 유지) ---
-st.title("📑 V-GEN VPP 수익 분석 대시보드 v4.6")
+st.title("📑 V-GEN VPP 수익 분석 대시보드 v4.7")
 
 # PDF 버튼
 pdf_data = generate_pro_report()
 if pdf_data:
-    st.download_button(label="📄 [최종 클로징 임팩트] 분석 리포트 다운로드", data=bytes(pdf_data), file_name=f"VGEN_Final_Consulting_Report.pdf", mime="application/pdf", use_container_width=True)
+    st.download_button(label="📄 [전략 및 추가수익 명시] 최종 분석 리포트 다운로드", data=bytes(pdf_data), file_name="VGEN_Final_Consulting_Report.pdf", mime="application/pdf", use_container_width=True)
 
 m1, m2, m3 = st.columns(3)
 m1.metric("기존 연간 수익", f"{total_rev_base/10000:,.0f} 만원")
@@ -137,11 +129,13 @@ st.divider()
 c1, c2 = st.columns([1.5, 1])
 with c1:
     st.subheader("📊 기술 격차에 따른 정산 단가 구성")
+    # 수수료 차감 로직 유지 (기존과 동일)
+    vpp_fee_display = -(owner_net_extra_unit/(1-(vgen_fee_rate/100))*(vgen_fee_rate/100))
     fig = go.Figure(go.Waterfall(
-        x = ["기존단가", "CP", "MEP", "MAP", "ASP", "IMB", "VPP수수료", "최종단가"],
-        y = [fixed_p, in_cp, adj_mep, in_map, in_asp, adj_imb, -(owner_net_extra_unit/(1-(vgen_fee_rate/100))*(vgen_fee_rate/100)), 0],
+        x = ["기존단가", "CP", "MEP", "MAP", "ASP", "IMB", "수수료", "최종단가"],
+        y = [fixed_p, in_cp, adj_mep, in_map, in_asp, adj_imb, vpp_fee_display, 0],
         measure = ["relative"]*7 + ["total"],
-        text = [f"{fixed_p}", f"+{in_cp}", f"+{adj_mep:.1f}", f"+{in_map}", f"+{in_asp}", f"{adj_imb:.1f}", f"-{(owner_net_extra_unit/(1-(vgen_fee_rate/100))*(vgen_fee_rate/100)):.1f}", f"{(fixed_p + owner_net_extra_unit):.1f}"],
+        text = [f"{fixed_p}", f"+{in_cp}", f"+{adj_mep:.1f}", f"+{in_map}", f"+{in_asp}", f"{adj_imb:.1f}", f"{vpp_fee_display:.1f}", f"{(fixed_p + owner_net_extra_unit):.1f}"],
         textposition = "outside"
     ))
     st.plotly_chart(fig, use_container_width=True)
@@ -152,9 +146,9 @@ with c2:
         st.write(f"**현재 파트너:** {tech_option}")
         st.write(f"- MEP 수익 효율: **{tech_impact[tech_option]['mep_mult']}배**")
         st.write(f"- IMB 페널티 방어: **{tech_impact[tech_option]['imb_mult']}배**")
-    with st.expander("🛠️ 비용 및 정책"):
-        st.write(f"- 초기 투자비: {initial_investment} 만원")
-        st.write(f"- 제도: 재생에너지 입찰 시장 대응형")
+    with st.expander("💰 수수료 및 참여 비용"):
+        st.write(f"- 운영 수수료: **{vgen_fee_rate}%**")
+        st.write(f"- 초기 투자비: **{initial_investment} 만원**")
 
 st.divider()
 st.subheader("🚀 전력시장 패러다임 변화 안내")
