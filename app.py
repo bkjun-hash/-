@@ -6,7 +6,7 @@ from datetime import datetime
 import os
 
 # 페이지 설정
-st.set_page_config(page_title="V-GEN VPP 수익 분석기 v4.7", layout="wide")
+st.set_page_config(page_title="V-GEN VPP 수익 분석기 v4.8", layout="wide")
 
 # --- 폰트 설정 ---
 FONT_FILENAME = "NanumGothic.ttf"
@@ -18,7 +18,7 @@ region_config = {
     "제주도 (입찰제 안착 모델)": {"cp": 22.0, "mep": 1.2, "map": 2.5, "asp": 1.0, "imb": -0.8}
 }
 
-# --- 2. 사이드바 (5번 수수료와 6번 참여 비용 분리) ---
+# --- 2. 사이드바 (5번 수수료 / 6번 참여비용 분리 유지) ---
 with st.sidebar:
     st.header("📍 1. 지역 및 제도 설정")
     selected_region = st.selectbox("지역 선택", list(region_config.keys()))
@@ -37,24 +37,22 @@ with st.sidebar:
     in_imb = st.number_input("5. 임밸런스 페널티(IMB)", value=conf['imb'])
 
     st.header("⚡ 4. VPP 기술력 민감도")
-    tech_option = st.radio("VPP 파트너 선택", options=["기술력 없는 회사", "보통 수준의 회사", "브이젠 (V-GEN)"], index=2)
-    
     tech_impact = {
         "기술력 없는 회사": {"mep_mult": 0.4, "imb_mult": 2.0},
         "보통 수준의 회사": {"mep_mult": 0.8, "imb_mult": 1.2},
         "브이젠 (V-GEN)": {"mep_mult": 1.6, "imb_mult": 0.4}
     }
+    tech_option = st.radio("VPP 파트너 선택", options=list(tech_impact.keys()), index=2)
     
     adj_mep = in_mep * tech_impact[tech_option]["mep_mult"]
     adj_imb = in_imb * tech_impact[tech_option]["imb_mult"]
 
-    # --- 분리된 섹션 ---
     st.header("💰 5. VPP 수수료 설정")
     vgen_fee_rate = st.slider("수수료율 (%)", 0, 50, 20)
 
     st.header("🛠️ 6. 참여 비용 (CAPEX)")
-    rtu_cost = st.number_input("RTU 설치비 (만원)", value=150)
-    data_device_cost = st.number_input("신재생자료취득장치 (만원)", value=150)
+    rtu_cost = st.number_input("RTU 설치비 (만원)", value=500)
+    data_device_cost = st.number_input("신재생자료취득장치 (만원)", value=300)
 
 # --- 3. 수익 계산 로직 (유지) ---
 annual_gen = cap_mw * 1000 * gen_time * 365
@@ -73,7 +71,7 @@ total_rev_vpp = annual_gen * (fixed_p + owner_net_extra_unit)
 net_increase = total_rev_vpp - total_rev_base
 initial_investment = rtu_cost + data_device_cost
 
-# --- 4. PDF 생성 함수 (기존 강화된 내용 100% 유지) ---
+# --- 4. PDF 생성 함수 (기존 강화된 전략 리포트 100% 유지) ---
 def generate_pro_report():
     pdf = FPDF()
     if os.path.exists(FONT_PATH):
@@ -111,14 +109,10 @@ def generate_pro_report():
 
     return pdf.output(dest='S')
 
-# --- 5. 메인 UI (전 기능 100% 유지) ---
-st.title("📑 V-GEN VPP 수익 분석 대시보드 v4.7")
+# --- 5. 메인 UI (100% 유지) ---
+st.title("📑 V-GEN VPP 수익 분석 대시보드 v4.8")
 
-# PDF 버튼
-pdf_data = generate_pro_report()
-if pdf_data:
-    st.download_button(label="📄 [전략 및 추가수익 명시] 최종 분석 리포트 다운로드", data=bytes(pdf_data), file_name="VGEN_Final_Consulting_Report.pdf", mime="application/pdf", use_container_width=True)
-
+# 상단 지표
 m1, m2, m3 = st.columns(3)
 m1.metric("기존 연간 수익", f"{total_rev_base/10000:,.0f} 만원")
 m2.metric("VPP 참여 연간 수익", f"{total_rev_vpp/10000:,.0f} 만원", f"+{net_increase/10000:,.0f} 만원")
@@ -129,7 +123,6 @@ st.divider()
 c1, c2 = st.columns([1.5, 1])
 with c1:
     st.subheader("📊 기술 격차에 따른 정산 단가 구성")
-    # 수수료 차감 로직 유지 (기존과 동일)
     vpp_fee_display = -(owner_net_extra_unit/(1-(vgen_fee_rate/100))*(vgen_fee_rate/100))
     fig = go.Figure(go.Waterfall(
         x = ["기존단가", "CP", "MEP", "MAP", "ASP", "IMB", "수수료", "최종단가"],
@@ -141,9 +134,9 @@ with c1:
     st.plotly_chart(fig, use_container_width=True)
 
 with c2:
-    st.subheader("📋 실시간 기술 민감도 분석")
-    with st.expander("⚡ 기술력 가중치 안내", expanded=True):
-        st.write(f"**현재 파트너:** {tech_option}")
+    st.subheader("📋 실시간 분석 세부 정보")
+    with st.expander("⚡ 파트너별 기술 가중치", expanded=True):
+        st.write(f"**현재 설정:** {tech_option}")
         st.write(f"- MEP 수익 효율: **{tech_impact[tech_option]['mep_mult']}배**")
         st.write(f"- IMB 페널티 방어: **{tech_impact[tech_option]['imb_mult']}배**")
     with st.expander("💰 수수료 및 참여 비용"):
@@ -160,3 +153,17 @@ st.table(pd.DataFrame({
     "기본 매전": [f"{annual_gen:,.0f} kWh", f"{fixed_p:,.1f} 원", f"{total_rev_base/10000:,.0f} 만원", "-"],
     "브이젠 VPP": [f"{annual_gen:,.0f} kWh", f"{(fixed_p + owner_net_extra_unit):,.2f} 원", f"{total_rev_vpp/10000:,.0f} 만원", f"+ {net_increase/10000:,.0f} 만원"]
 }))
+
+# --- 6. 하단 고정 PDF 다운로드 버튼 (강조 및 배치 수정) ---
+st.divider()
+st.subheader("📄 분석 결과 보고서 추출")
+pdf_data = generate_pro_report()
+if pdf_data:
+    st.download_button(
+        label="📥 [클릭] 모든 분석 내용이 포함된 전문가 컨설팅 리포트(PDF) 다운로드",
+        data=bytes(pdf_data),
+        file_name=f"VGEN_Strategic_Consulting_Report.pdf",
+        mime="application/pdf",
+        use_container_width=True, # 버튼을 화면 꽉 차게 설정하여 가시성 극대화
+        help="항목별 수익 분석 및 브이젠의 독보적 기술력 대응 방안이 포함된 PDF를 다운로드합니다."
+    )
