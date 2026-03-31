@@ -5,7 +5,7 @@ from fpdf import FPDF
 import os
 
 # 페이지 설정
-st.set_page_config(page_title="V-GEN VPP 수익 분석기 v6.0", layout="wide")
+st.set_page_config(page_title="VGen-VPP 수익 분석기 v6.0", layout="wide")
 
 # --- 폰트 설정 ---
 FONT_FILENAME = "NanumGothic.ttf"
